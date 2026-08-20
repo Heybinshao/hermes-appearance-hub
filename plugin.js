@@ -255,7 +255,7 @@ function AppearancePanel() {
 // ── 插件入口 ──────────────────────────────────────────────────────
 export default {
   id: ID,
-  name: 'Appearance Hub',
+  name: 'Hermes Appearance Hub',
   description: '外观整合面板：纸纹 + 霞鹜文楷字体，状态栏一键开关。',
   register(ctx) {
     try {
