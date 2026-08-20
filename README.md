@@ -28,6 +28,16 @@ cp -r hermes-appearance-hub ~/.hermes/desktop-plugins/
 > 如果 Hermes 使用了非默认 profile，插件目录是 `~/.hermes/profiles/<name>/desktop-plugins/`。
 > 不确定时在桌面端 Settings → Plugins 里查看插件目录路径。
 
+## 界面预览
+
+**状态栏右键菜单** —— 可勾选显示/隐藏「外观设置」入口：
+
+![状态栏右键菜单显隐](assets/screenshot-context-menu.png)
+
+**外观浮窗** —— 点击状态栏「外观」按钮弹出，两个开关即时生效：
+
+![外观浮窗](assets/screenshot-panel.png)
+
 ## 使用
 
 1. 状态栏右侧出现「外观」按钮（调色盘图标）
