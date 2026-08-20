@@ -38,6 +38,12 @@ cp -r hermes-appearance-hub ~/.hermes/desktop-plugins/
 
 ![外观浮窗](assets/screenshot-panel.png)
 
+**浅色模式效果对比** —— 左：未启用（系统字体、无纸纹）；右：启用后（霞鹜文楷 + 宣纸纸纹）：
+
+| 未启用 | 启用纸纹 + 字体 |
+|---|---|
+| ![浅色默认](assets/screenshot-light-before.png) | ![浅色启用](assets/screenshot-light-after.png) |
+
 ## 使用
 
 1. 状态栏右侧出现「外观」按钮（调色盘图标）
