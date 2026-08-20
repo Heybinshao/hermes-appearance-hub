@@ -58,8 +58,6 @@ cp -r hermes-appearance-hub ~/.hermes/desktop-plugins/
    - **字体**：界面字体统一为霞鹜文楷（`--dt-font-sans/mono` + `!important`，任何主题下生效）
 3. 状态栏右键菜单 → 勾选「外观设置」可显示/隐藏入口
 
-> 若同时启用独立的 `hermes-paper-texture` / `hermes-font-wenkai` 插件，纸纹会叠加变重，建议只保留本插件。
-
 ## 卸载
 
 删除插件目录 + 重启桌面端：
