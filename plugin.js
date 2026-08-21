@@ -141,7 +141,10 @@ function applyFont() {
   }
   style.textContent =
     ':root{--dt-font-sans:' + FONT_SANS + ' !important;' +
-    '--dt-font-mono:' + FONT_MONO + ' !important}'
+    '--dt-font-mono:' + FONT_MONO + ' !important}' +
+    // tooltip 的 chip 硬编码了 [font-family:Arial,sans-serif]（tooltip.tsx），
+    // 不走变量继承，需用 data-slot 定位覆盖，否则提示文字永远系统字体。
+    '[data-slot="tooltip-content"] > span{font-family:var(--dt-font-sans) !important}'
 }
 
 function removeFont() {
