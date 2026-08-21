@@ -27,10 +27,15 @@ const PAPER_KEY = 'paper.enabled'
 const FONT_KEY = 'font.enabled'
 const WELCOME_KEY = 'welcome-v1'
 
-// 界面缩放档位：直接复用 Hermes 原生预设（100/125/150/175 均为原生支持值）。
+// 界面缩放档位：直接复用 Hermes 原生预设（90/100/110/125/150/175 均为原生支持值）。
+// 与官方 Settings UI_SCALE_PRESETS 对齐（appearance-settings.tsx）——90% 是官方
+// 「实际大小」基准（Cmd+0 落点，electron/zoom.ts DEFAULT_ZOOM_LEVEL），缺了它
+// Cmd+0 后没有任何按钮高亮。
 // id 用字符串（SegmentedControl<T extends string> 要求），percent 用于调原生接口。
 const ZOOM_OPTIONS = [
+  { id: '90', label: '90%', percent: 90 },
   { id: '100', label: '100%', percent: 100 },
+  { id: '110', label: '110%', percent: 110 },
   { id: '125', label: '125%', percent: 125 },
   { id: '150', label: '150%', percent: 150 },
   { id: '175', label: '175%', percent: 175 }
