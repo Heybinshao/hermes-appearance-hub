@@ -18,7 +18,7 @@
  *       状态栏入口用 declarative data 通道（variant:'menu' + menuContent），
  *       不自定义 Popover —— 与核心状态栏工具同一条渲染路径，最稳。
  */
-import { haptic, host, icons, Switch, SegmentedControl } from '@hermes/plugin-sdk'
+import { haptic, host, icons, Switch, SegmentedControl, Input, Textarea } from '@hermes/plugin-sdk'
 import { useState, useEffect } from 'react'
 import { jsx, jsxs } from 'react/jsx-runtime'
 
@@ -45,6 +45,23 @@ const ZOOM_OPTIONS = [
 const PAPER_LAYER_ID = ID + '-paper'
 // 与 hermes-font-wenkai 同机制，独立 style id
 const FONT_STYLE_ID = ID + '-font-style'
+
+// ── 开场标识（intro splash）─────────────────────────────────────────
+// 原生机制：src/store/intro-splash.ts 用 localStorage 键 hermes.desktop.intro-splash.v1
+// （storedBoolean 只在模块加载读一次，无 storage 监听 → 写键仅重启后生效，
+//   即时生效全靠本插件的 CSS 注入层）。渲染钩子：[data-slot="aui_intro"]，
+//   字标 = p.fit-text（双 span 测量结构），提示语 = p.fit-text 相邻的 p。
+const INTRO_MODE_KEY = 'intro.mode'            // 'native' | 'custom' | 'off'
+const INTRO_HEADLINE_KEY = 'intro.headline'    // 自定义字标
+const INTRO_TAGLINE_KEY = 'intro.tagline'      // 自定义提示语（空 = 跟随原生随机文案）
+const INTRO_STYLE_ID = ID + '-intro-style'
+const INTRO_NATIVE_KEY = 'hermes.desktop.intro-splash.v1'  // 只写不改名，与原生设置页保持一致
+
+const INTRO_OPTIONS = [
+  { id: 'native', label: '原生' },
+  { id: 'custom', label: '自定义' },
+  { id: 'off', label: '关闭' }
+]
 
 let ctxRef = null
 let paperObserver = null
@@ -157,6 +174,116 @@ function removeFont() {
   if (style) style.remove()
 }
 
+// ── 开场标识：DOM 文本替换层（即时生效）+ 原生键落盘（重启后一致）──────────
+// 原生 Intro 结构：[data-slot="aui_intro"] 内
+//   字标 = p.fit-text（双 span 测量结构，叶子 span 持文字）
+//   提示语 = 容器内非 fit-text 的那个 p
+// 直接替换叶子文本：fit-text 的自适应字号按真实文本测量，替换后缩放依旧正确。
+// ⚠️ 勿回退 CSS 伪元素方案：font-size:0 隐藏原生文字后，::before 继承 0 号字，
+//    自定义文字永远不可见（2026-08-23 实测踩坑）。
+// MutationObserver 兜两种情况：弹窗打开后才新渲染的 intro、React 重渲染写回的原生文案。
+const INTRO_SLOT = '[data-slot="aui_intro"]'
+let introObserver = null
+const introOriginalTexts = new Map()   // 叶子元素 → 原始文本（切回原生/禁用时恢复）
+
+function introLeafSpans(root) {
+  // 字标叶子 span：没有元素子节点的 span（外层 span 只包内层 span，不算叶子）
+  return Array.from(root.querySelectorAll('p.fit-text span')).filter((s) => !s.querySelector('*'))
+}
+
+function introWrite(headline, tagline) {
+  const root = document.querySelector(INTRO_SLOT)
+  if (!root || (!headline && !tagline)) return
+  if (headline) {
+    for (const el of introLeafSpans(root)) {
+      if (!introOriginalTexts.has(el)) introOriginalTexts.set(el, el.textContent)
+      if (el.textContent !== headline) el.textContent = headline
+    }
+  }
+  if (tagline) {
+    const p = root.querySelector('p:not(.fit-text)')
+    if (p) {
+      if (!introOriginalTexts.has(p)) introOriginalTexts.set(p, p.textContent)
+      if (p.textContent !== tagline) p.textContent = tagline
+    }
+  }
+}
+
+function introRestore() {
+  for (const [el, text] of introOriginalTexts) {
+    if (el.isConnected && el.textContent !== text) el.textContent = text
+  }
+  introOriginalTexts.clear()
+}
+
+function startIntroObserver() {
+  if (introObserver) return
+  let scheduled = false
+  introObserver = new MutationObserver(() => {
+    if (scheduled) return
+    scheduled = true
+    queueMicrotask(() => {
+      scheduled = false
+      if (!ctxRef || ctxRef.storage.get(INTRO_MODE_KEY, 'native') !== 'custom') return
+      introWrite(
+        String(ctxRef.storage.get(INTRO_HEADLINE_KEY, '')).trim(),
+        String(ctxRef.storage.get(INTRO_TAGLINE_KEY, '')).trim()
+      )
+    })
+  })
+  introObserver.observe(document.body, { childList: true, subtree: true, characterData: true })
+}
+
+function stopIntroObserver() {
+  if (introObserver) {
+    introObserver.disconnect()
+    introObserver = null
+  }
+}
+
+function applyIntroMode(mode) {
+  let style = document.getElementById(INTRO_STYLE_ID)
+  if (mode === 'off') {
+    if (!style) {
+      style = document.createElement('style')
+      style.id = INTRO_STYLE_ID
+      document.head.appendChild(style)
+    }
+    style.textContent = INTRO_SLOT + '{display:none !important}'
+  } else if (style) {
+    style.remove()
+  }
+
+  if (mode === 'custom') {
+    const headline = ctxRef ? String(ctxRef.storage.get(INTRO_HEADLINE_KEY, '')).trim() : ''
+    const tagline = ctxRef ? String(ctxRef.storage.get(INTRO_TAGLINE_KEY, '')).trim() : ''
+    introWrite(headline, tagline)   // 当前已在渲染的 intro 立即替换
+    startIntroObserver()            // 之后新渲染 / 被写回的交给 observer
+  } else {
+    stopIntroObserver()
+    introRestore()
+  }
+
+  // 原生键落盘：off → false；其余 → true。仅影响重启后的初始状态，
+  // 与原生设置页开关保持最终一致（atom 无监听，不追求运行时同步）。
+  try {
+    localStorage.setItem(INTRO_NATIVE_KEY, mode === 'off' ? 'false' : 'true')
+  } catch {
+    // storage 不可用时静默跳过，注入层不受影响
+  }
+}
+
+function resetIntroOnDispose() {
+  stopIntroObserver()
+  introRestore()
+  const style = document.getElementById(INTRO_STYLE_ID)
+  if (style) style.remove()
+  // 禁用插件后恢复原生显示
+  try {
+    localStorage.setItem(INTRO_NATIVE_KEY, 'true')
+  } catch {}
+}
+
 // ── 界面缩放（直接驱动 Hermes 原生缩放，不另起 DOM 层）──────────────
 // 与 Settings → Appearance → 界面缩放、View 菜单同一套机制（main process 拥有并持久化）。
 // 通过 window.hermesDesktop.zoom 读写，onChanged 让原生侧改动（View 菜单 / Cmd±）实时回灌 UI。
@@ -217,6 +344,9 @@ function AppearancePanel() {
   const [paper, setPaper] = useState(() => ctxRef.storage.get(PAPER_KEY, true))
   const [font, setFont] = useState(() => ctxRef.storage.get(FONT_KEY, true))
   const [zoom, setZoomState] = useState(() => '90')
+  const [introMode, setIntroModeState] = useState(() => ctxRef.storage.get(INTRO_MODE_KEY, 'native'))
+  const [introHeadline, setIntroHeadline] = useState(() => ctxRef.storage.get(INTRO_HEADLINE_KEY, 'HERMES AGENT'))
+  const [introTagline, setIntroTagline] = useState(() => ctxRef.storage.get(INTRO_TAGLINE_KEY, ''))
 
   // 面板挂载后建立同步：优先用模块级 liveZoom 缓存，未缓存则回退原生读取；
   // 订阅模块级变化（弹窗关闭即退订，但原生常驻监听在 register 时已挂，故反向永不断）
@@ -254,6 +384,27 @@ function AppearancePanel() {
     setNativeZoom(Number(id))
     haptic('tap')
   }
+
+  const setIntroMode = (mode) => {
+    setIntroModeState(mode)
+    ctxRef.storage.set(INTRO_MODE_KEY, mode)
+    applyIntroMode(mode)
+    haptic('tap')
+  }
+
+  // 边输入边生效：停手 400ms 防抖落盘 + 重刷替换层，无需失焦/按回车确认
+  useEffect(() => {
+    if (introMode !== 'custom') return
+    const t = setTimeout(() => {
+      if (!ctxRef) return
+      const headline = String(introHeadline).trim() || 'HERMES AGENT'
+      const tagline = String(introTagline).trim()
+      ctxRef.storage.set(INTRO_HEADLINE_KEY, headline)
+      ctxRef.storage.set(INTRO_TAGLINE_KEY, tagline)
+      applyIntroMode('custom')
+    }, 400)
+    return () => clearTimeout(t)
+  }, [introHeadline, introTagline, introMode])
 
   return jsxs('div', {
     className: 'flex w-72 flex-col p-3',
@@ -381,6 +532,59 @@ function AppearancePanel() {
         ]
       }),
 
+      // 开场标识（新会话空态字标 + 提示语）
+      jsxs('div', {
+        className: 'flex flex-col gap-1.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
+        children: [
+          jsxs('div', {
+            className: 'flex items-center gap-2.5',
+            children: [
+              jsx('span', {
+                className: 'flex size-6 shrink-0 items-center justify-center',
+                children: jsx(icons.MessageSquareText, { className: 'size-3.5 text-(--ui-text-secondary)' })
+              }),
+              jsxs('div', {
+                className: 'min-w-0 flex-1',
+                children: [
+                  jsx('div', { className: 'text-[0.75rem] leading-tight', children: '开场标识' }),
+                  jsx('div', {
+                    className: 'mt-0.5 text-[0.6875rem] leading-tight text-(--ui-text-tertiary)',
+                    children: '新建会话的字标与提示语'
+                  })
+                ]
+              })
+            ]
+          }),
+          jsx(SegmentedControl, {
+            options: INTRO_OPTIONS,
+            value: introMode,
+            onChange: setIntroMode,
+            className: 'w-full'
+          }),
+          introMode === 'custom' &&
+            jsxs('div', {
+              className: 'flex flex-col gap-1.5 pt-0.5',
+              children: [
+                jsx(Input, {
+                  value: introHeadline,
+                  onChange: (e) => setIntroHeadline(e.target.value),
+                  placeholder: '字标，如 BINSHAO',
+                  className: 'h-7 text-[0.6875rem]',
+                  'aria-label': '自定义字标'
+                }),
+                jsx(Textarea, {
+                  value: introTagline,
+                  onChange: (e) => setIntroTagline(e.target.value),
+                  placeholder: '提示语（留空跟随原生随机文案）',
+                  rows: 2,
+                  className: 'text-[0.6875rem]',
+                  'aria-label': '自定义提示语'
+                })
+              ]
+            })
+        ]
+      }),
+
       // 底部提示
       jsx('div', {
         className: 'mt-1 border-t border-(--ui-stroke-secondary) px-1 pt-2 text-[0.625rem] text-(--ui-text-quaternary)',
@@ -402,6 +606,8 @@ export default {
       // 按持久化状态初始化（默认开启，与原插件行为一致）
       if (ctx.storage.get(PAPER_KEY, true)) injectPaper()
       if (ctx.storage.get(FONT_KEY, true)) applyFont()
+      // 开场标识：按上次档位恢复注入层（默认原生 = 不注入，只同步原生键）
+      applyIntroMode(ctx.storage.get(INTRO_MODE_KEY, 'native'))
       // 界面缩放走原生机制（window.hermesDesktop.zoom）。
       // 挂模块级常驻监听：与弹窗开关无关，保证 Settings / View 菜单 / Cmd± 改缩放时
       // 反向同步（哪怕 hub 弹窗此刻没开，下次打开也已是最新值）。
@@ -411,6 +617,7 @@ export default {
       ctx.onDispose(() => {
         removePaper()
         removeFont()
+        resetIntroOnDispose()
         if (typeof zoomUnsubscribeNative === 'function') zoomUnsubscribeNative()
         zoomUnsubscribeNative = null
         zoomSubscribers.clear()
