@@ -260,7 +260,8 @@ function AppearancePanel() {
     children: [
       // 标题
       jsxs('div', {
-        className: 'flex items-center gap-2.5 px-1 pb-2',
+        className:
+          'mb-1 flex items-center gap-2.5 border-b border-(--ui-stroke-secondary) px-1 pb-2',
         children: [
           jsx('span', {
             className:
