@@ -664,6 +664,30 @@ function AppearancePanel() {
     } catch { return 'clear' }
   })
   const [intensity, setIntensityState] = useState(() => currentIntensity())
+  const [fade, setFadeState] = useState(() => {
+    try {
+      const dark = resolvedDark()
+      const raw = JSON.parse(localStorage.getItem(TRANSLUCENCY_KEY) || 'null')
+      const slot = dark ? (raw?.dark?.fade ?? raw?.base?.fade) : (raw?.light?.fade ?? raw?.base?.fade)
+      return typeof slot === 'number' ? slot : (dark ? 0 : 1)
+    } catch { return 0 }
+  })
+  const [glassMaterial, setGlassMaterialState] = useState(() => {
+    try {
+      const dark = resolvedDark()
+      const raw = JSON.parse(localStorage.getItem(TRANSLUCENCY_KEY) || 'null')
+      return dark ? (raw?.dark?.material ?? raw?.base?.material ?? 'titlebar')
+                  : (raw?.light?.material ?? raw?.base?.material ?? 'header')
+    } catch { return 'titlebar' }
+  })
+  const [glassScope, setGlassScopeState] = useState(() => {
+    try {
+      const dark = resolvedDark()
+      const raw = JSON.parse(localStorage.getItem(TRANSLUCENCY_KEY) || 'null')
+      return dark ? (raw?.dark?.scope ?? raw?.base?.scope ?? 'window')
+                  : (raw?.light?.scope ?? raw?.base?.scope ?? 'window')
+    } catch { return 'window' }
+  })
   const [font, setFont] = useState(() => ctxRef.storage.get(FONT_KEY, true))
   const [zoom, setZoomState] = useState(() => '90')
   const [introOn, setIntroOn] = useState(() => {
@@ -786,6 +810,37 @@ function AppearancePanel() {
     setIntensityState(value)
     clearTimeout(changeIntensity._t)
     changeIntensity._t = setTimeout(() => writeIntensity(value), 250)
+  }
+
+  const writeGlassField = (field, value) => {
+    const dark = resolvedDark()
+    try {
+      const book = JSON.parse(localStorage.getItem(TRANSLUCENCY_KEY) || '{}')
+      const slot = dark ? 'dark' : 'light'
+      book[slot] = { ...(book[slot] || {}), [field]: value }
+      if (!book.mode) book.mode = 'clear'
+      localStorage.setItem(TRANSLUCENCY_KEY, JSON.stringify(book))
+      window.dispatchEvent(new StorageEvent('storage', { key: TRANSLUCENCY_KEY }))
+      pushTranslucencyIpc(book, dark)
+    } catch {}
+  }
+
+  const changeFade = (value) => {
+    setFadeState(value)
+    clearTimeout(changeFade._t)
+    changeFade._t = setTimeout(() => writeGlassField('fade', value), 250)
+  }
+
+  const setGlassMaterial = (m3) => {
+    setGlassMaterialState(m3)
+    writeGlassField('material', m3)
+    haptic('tap')
+  }
+
+  const setGlassScope = (s3) => {
+    setGlassScopeState(s3)
+    writeGlassField('scope', s3)
+    haptic('tap')
   }
 
     const toggleFont = (next) => {
