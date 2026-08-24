@@ -92,6 +92,10 @@ const TABSTRIP_OPTIONS = [
 ]
 const BACKDROP_KEY = 'hermes.desktop.backdrop.v1'
 const TRANSLUCENCY_KEY = 'hermes.desktop.translucency.v2'
+const GLASS_MATERIALS = ['under-window', 'popover', 'titlebar', 'header']
+const GLASS_SCOPES = ['window', 'sidebar']
+const FROST_LABELS = { 'under-window': '深邃', popover: '柔和', titlebar: '明亮', header: '透亮' }
+const SCOPE_LABELS = { window: '整个窗口', sidebar: '仅侧边栏' }
 const SLIDER_STYLE = {
   height: '4px',
   WebkitAppearance: 'none',
@@ -530,6 +534,61 @@ function writeSimpleKey(key, value) {
   } catch {}
 }
 
+// ── 官方 store 实时通道：动态 import 官方 chunk，直接调 nanostores atom ──
+let officialStores = null
+
+async function loadOfficialStores() {
+  officialStores ??= {}
+  try {
+    // 1) 从 DOM script 标签拿主 bundle URL（assets 同目录）
+    const scriptEl = document.querySelector('script[src*="index-"]')
+    if (!scriptEl) return officialStores
+    const mainUrl = new URL(scriptEl.src, location.href)
+    const base = new URL('./', mainUrl)
+    // 2) fetch 主 bundle 抠出 chunk 文件名
+    const mainSrc = await (await fetch(mainUrl)).text()
+    // density chunk
+    const m1 = mainSrc.match(/([\w-]*session-list-density-[A-Za-z0-9_-]+\.js)/)
+    if (m1 && !officialStores.density && !officialStores._densityMiss) {
+      try {
+        const mod = await import(/* @vite-ignore */ new URL('./' + m1[1], base).href)
+        for (const k of Object.keys(mod)) {
+          const v = mod[k]
+          if (!v || typeof v.get !== 'function' || typeof v.set !== 'function') continue
+          const cur = v.get()
+          if (cur === 'compact' || cur === 'comfortable' || cur === 'detailed') { officialStores.density = v; break }
+          // backdrop atom：boolean 值，用键验证法区分 intro-splash
+          if (typeof cur === 'boolean' && !officialStores.backdrop) {
+            try {
+              localStorage.setItem(BACKDROP_KEY, String(!cur))
+              if (localStorage.getItem(BACKDROP_KEY) === String(!cur)) {
+                officialStores.backdrop = v
+                localStorage.setItem(BACKDROP_KEY, String(cur))
+              } else { localStorage.removeItem(BACKDROP_KEY) }
+            } catch {}
+          }
+        }
+        if (!officialStores.density) officialStores._densityMiss = true
+      } catch {}
+    }
+    // store chunk（tabStrip）
+    const chunks = [...mainSrc.matchAll(/([\w-]*store-[A-Za-z0-9_-]+\.js)/g)].map(m2 => m2[1])
+    for (const name of chunks) {
+      if (officialStores.tabStrip) break
+      try {
+        const mod = await import(/* @vite-ignore */ new URL('./' + name, base).href)
+        for (const k of Object.keys(mod)) {
+          const v = mod[k]
+          if (!v || typeof v.get !== 'function' || typeof v.set !== 'function') continue
+          const cur = v.get()
+          if (cur === 'auto' || cur === 'always' || cur === 'never') { officialStores.tabStrip = v; break }
+        }
+      } catch {}
+    }
+  } catch {}
+  return officialStores
+}
+
 function readBackdrop() {
   try { return localStorage.getItem(BACKDROP_KEY) === 'true' } catch { return false }
 }
@@ -778,19 +837,28 @@ function AppearancePanel() {
 
   const setDensity = (id) => {
     setDensityState(id)
-    writeSimpleKey(DENSITY_KEY, id)
+    loadOfficialStores().then((s) => {
+      if (s?.density) s.density.set(id)
+      else writeSimpleKey(DENSITY_KEY, id)
+    })
     haptic('tap')
   }
 
   const setTabStrip = (id) => {
     setTabStripState(id)
-    writeSimpleKey(TABSTRIP_KEY, id)
+    loadOfficialStores().then((s) => {
+      if (s?.tabStrip) s.tabStrip.set(id)
+      else writeSimpleKey(TABSTRIP_KEY, id)
+    })
     haptic('tap')
   }
 
   const toggleBackdrop = (on) => {
     setBackdropState(on)
-    writeBackdrop(on)
+    loadOfficialStores().then((s) => {
+      if (s?.backdrop) s.backdrop.set(on)
+      else writeBackdrop(on)
+    })
     haptic('tap')
   }
 
