@@ -556,7 +556,10 @@ async function loadOfficialStores() {
           const v = mod[k]
           if (!v || typeof v.get !== 'function' || typeof v.set !== 'function') continue
           const cur = v.get()
-          if (cur === 'compact' || cur === 'comfortable' || cur === 'detailed') { officialStores.density = v; break }
+          if (cur === 'compact' || cur === 'comfortable' || cur === 'detailed') {
+            if (!officialStores.density) officialStores.density = v
+            continue
+          }
           // backdrop atom：boolean 值，用键验证法区分 intro-splash
           if (typeof cur === 'boolean' && !officialStores.backdrop) {
             try {
@@ -568,7 +571,6 @@ async function loadOfficialStores() {
             } catch {}
           }
         }
-        if (!officialStores.density) officialStores._densityMiss = true
       } catch {}
     }
     // store chunk（tabStrip）
@@ -1315,7 +1317,16 @@ function AppearancePanel() {
                 className: 'flex size-6 shrink-0 items-center justify-center',
                 children: jsx(icons.MessageSquareText, { className: 'size-3.5 text-(--ui-text-secondary)' })
               }),
-              jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: '开场标识' }),
+              jsxs('div', {
+                className: 'min-w-0 flex-1',
+                children: [
+                  jsx('div', { className: 'text-[0.75rem] leading-tight', children: '开场标识' }),
+                  jsx('div', {
+                    className: 'mt-0.5 text-[0.6875rem] leading-tight text-(--ui-text-tertiary)',
+                    children: '新建会话的字标与提示语'
+                  })
+                ]
+              }),
               jsx(SegmentedControl, {
                 options: [
                   { id: 'off', label: '关' },
