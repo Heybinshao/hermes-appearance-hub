@@ -855,9 +855,13 @@ function AppearancePanel() {
 
   const toggleBackdrop = (on) => {
     setBackdropState(on)
+    writeBackdrop(on)  // 先落盘保证状态正确
     loadOfficialStores().then((s) => {
-      if (s?.backdrop) s.backdrop.set(on)
-      else writeBackdrop(on)
+      // 官方 atom 实时切换界面（若识别成功）
+      if (s?.backdrop) {
+        console.info('[appearance-hub] backdrop atom.set:', on, '→ get():', s.backdrop.get())
+        s.backdrop.set(on)
+      }
     })
     haptic('tap')
   }
@@ -1327,14 +1331,17 @@ function AppearancePanel() {
             className: 'flex items-center gap-2.5',
             children: [
               jsx('div', { className: 'min-w-0 flex-1' }),
-              jsx(SegmentedControl, {
-                options: [
-                  { id: 'off', label: '关' },
-                  { id: 'on', label: '开' }
-                ],
-                value: introOn ? 'on' : 'off',
-                onChange: (id2) => toggleIntro(id2 === 'on'),
-                className: 'shrink-0'
+              jsx('div', {
+                className: 'shrink-0',
+                style: { marginTop: '-2px' },
+                children: jsx(SegmentedControl, {
+                  options: [
+                    { id: 'off', label: '关' },
+                    { id: 'on', label: '开' }
+                  ],
+                  value: introOn ? 'on' : 'off',
+                  onChange: (id2) => toggleIntro(id2 === 'on')
+                })
               })
             ]
           }),
