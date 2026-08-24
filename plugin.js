@@ -77,10 +77,32 @@ const LIGHT_RECIPES = {
 const DARK_RECIPE_KEY = 'paper.darkRecipe'
 const LIGHT_RECIPE_KEY = 'paper.lightRecipe'
 
+// ── 移植：密度 / 标签栏 / 聊天背景 / 窗口透明 ────────────────────────
+const DENSITY_KEY = 'hermes.desktop.sessionListDensity'
+const DENSITY_OPTIONS = [
+  { id: 'compact', label: '紧凑' },
+  { id: 'comfortable', label: '舒适' },
+  { id: 'detailed', label: '详细' }
+]
+const TABSTRIP_KEY = 'hermes.desktop.tabStripDefault'
+const TABSTRIP_OPTIONS = [
+  { id: 'auto', label: '自动' },
+  { id: 'always', label: '始终' },
+  { id: 'never', label: '从不' }
+]
+const BACKDROP_KEY = 'hermes.desktop.backdrop.v1'
+const TRANSLUCENCY_KEY = 'hermes.desktop.translucency.v2'
+const SLIDER_STYLE = {
+  height: '4px',
+  WebkitAppearance: 'none',
+  background: 'var(--ui-stroke-tertiary)',
+  borderRadius: '9999px',
+  accentColor: 'var(--dt-primary)'
+}
+
 const INTRO_OPTIONS = [
-  { id: 'native', label: '原生' },
-  { id: 'custom', label: '自定义' },
-  { id: 'off', label: '关闭' }
+  { id: 'native', label: '原生文案' },
+  { id: 'custom', label: '自定义' }
 ]
 
 let ctxRef = null
@@ -493,6 +515,84 @@ function resolvedDark() {
     document.documentElement.dataset.hermesMode === 'dark'
 }
 
+// ── 移植项读写 ────────────────────────────────────────────────────
+function readSimpleKey(key, fallback, valid) {
+  try {
+    const v = localStorage.getItem(key)
+    return v && valid.includes(v) ? v : fallback
+  } catch { return fallback }
+}
+
+function writeSimpleKey(key, value) {
+  try {
+    localStorage.setItem(key, value)
+    window.dispatchEvent(new StorageEvent('storage', { key }))
+  } catch {}
+}
+
+function readBackdrop() {
+  try { return localStorage.getItem(BACKDROP_KEY) === 'true' } catch { return false }
+}
+
+function writeBackdrop(on) {
+  try {
+    localStorage.setItem(BACKDROP_KEY, String(on))
+    window.dispatchEvent(new StorageEvent('storage', { key: BACKDROP_KEY }))
+  } catch {}
+}
+
+function readTranslucencyBook() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(TRANSLUCENCY_KEY) || 'null')
+    if (raw && typeof raw === 'object') {
+      return {
+        mode: raw.mode === 'glass' || raw.mode === 'clear' ? raw.mode : 'clear',
+        base: raw.base || {}, light: raw.light || {}, dark: raw.dark || {}
+      }
+    }
+  } catch {}
+  return { mode: 'clear', base: {}, light: {}, dark: {} }
+}
+
+function currentIntensity() {
+  const dark = resolvedDark()
+  const book = readTranslucencyBook()
+  const slot = dark ? (book.dark.intensity ?? book.base.intensity) : (book.light.intensity ?? book.base.intensity)
+  if (typeof slot === 'number') return slot
+  return dark ? 22 : 66
+}
+
+function writeIntensity(intensity) {
+  const dark = resolvedDark()
+  const book = readTranslucencyBook()
+  const slot = dark ? 'dark' : 'light'
+  book[slot] = { ...book[slot], intensity }
+  try {
+    localStorage.setItem(TRANSLUCENCY_KEY, JSON.stringify(book))
+    window.dispatchEvent(new StorageEvent('storage', { key: TRANSLUCENCY_KEY }))
+  } catch {}
+  pushTranslucencyIpc(book, dark)
+}
+
+function pushTranslucencyIpc(book, dark) {
+  // 实时驱动原生窗口透明效果（官方 IPC 通道）
+  const slot = book[dark ? 'dark' : 'light'] || {}
+  const base = book.base || {}
+  const defaults = dark ? { intensity: 22, fade: 0, material: 'titlebar', scope: 'window' }
+                        : { intensity: 66, fade: 1, material: 'header', scope: 'window' }
+  try {
+    window.hermesDesktop?.setTranslucency?.({
+      mode: book.mode,
+      intensity: slot.intensity ?? base.intensity ?? defaults.intensity,
+      fade: slot.fade ?? base.fade ?? defaults.fade,
+      material: slot.material ?? base.material ?? defaults.material,
+      scope: slot.scope ?? base.scope ?? defaults.scope,
+      glassSupported: true
+    })
+  } catch {}
+}
+
+
 // ── 主题（皮肤）───────────────────────────────────────────────────
 // 与模式同款官方管道：skin 存 hermes-desktop-theme-v2（default）/ profile-themes record，
 // 官方 storage 监听实时生效。列表 = 原生 BUILTIN_THEME_LIST（presets.ts）。
@@ -552,9 +652,27 @@ function AppearancePanel() {
     return LIGHT_RECIPES[v] ? v : 'light'
   })
   const [themeMode, setThemeModeState] = useState(() => readThemeMode())
+  const [density, setDensityState] = useState(() =>
+    readSimpleKey(DENSITY_KEY, 'compact', ['compact', 'comfortable', 'detailed']))
+  const [tabStrip, setTabStripState] = useState(() =>
+    readSimpleKey(TABSTRIP_KEY, 'auto', ['auto', 'always', 'never']))
+  const [backdrop, setBackdropState] = useState(() => readBackdrop())
+  const [translucencyMode, setTranslucencyModeState] = useState(() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem(TRANSLUCENCY_KEY) || 'null')
+      return raw?.mode === 'glass' ? 'glass' : 'clear'
+    } catch { return 'clear' }
+  })
+  const [intensity, setIntensityState] = useState(() => currentIntensity())
   const [font, setFont] = useState(() => ctxRef.storage.get(FONT_KEY, true))
   const [zoom, setZoomState] = useState(() => '90')
-  const [introMode, setIntroModeState] = useState(() => ctxRef.storage.get(INTRO_MODE_KEY, 'native'))
+  const [introOn, setIntroOn] = useState(() => {
+    try { return localStorage.getItem(INTRO_NATIVE_KEY) !== 'false' } catch { return true }
+  })
+  const [introMode, setIntroModeState] = useState(() => {
+    const v = ctxRef.storage.get(INTRO_MODE_KEY, 'native')
+    return v === 'custom' ? 'custom' : 'native'
+  })
   const [introHeadline, setIntroHeadline] = useState(() => ctxRef.storage.get(INTRO_HEADLINE_KEY, 'HERMES AGENT'))
   const [introTagline, setIntroTagline] = useState(() => ctxRef.storage.get(INTRO_TAGLINE_KEY, ''))
 
@@ -634,7 +752,43 @@ function AppearancePanel() {
     haptic('tap')
   }
 
-  const toggleFont = (next) => {
+  const setDensity = (id) => {
+    setDensityState(id)
+    writeSimpleKey(DENSITY_KEY, id)
+    haptic('tap')
+  }
+
+  const setTabStrip = (id) => {
+    setTabStripState(id)
+    writeSimpleKey(TABSTRIP_KEY, id)
+    haptic('tap')
+  }
+
+  const toggleBackdrop = (on) => {
+    setBackdropState(on)
+    writeBackdrop(on)
+    haptic('tap')
+  }
+
+  const changeTranslucencyMode = (mode) => {
+    setTranslucencyModeState(mode)
+    try {
+      const book = readTranslucencyBook()
+      book.mode = mode
+      localStorage.setItem(TRANSLUCENCY_KEY, JSON.stringify(book))
+      pushTranslucencyIpc(book, resolvedDark())
+    } catch {}
+    setTimeout(() => setIntensityState(currentIntensity()), 0)
+    haptic('tap')
+  }
+
+  const changeIntensity = (value) => {
+    setIntensityState(value)
+    clearTimeout(changeIntensity._t)
+    changeIntensity._t = setTimeout(() => writeIntensity(value), 250)
+  }
+
+    const toggleFont = (next) => {
     setFont(next)
     ctxRef.storage.set(FONT_KEY, next)
     if (next) applyFont()
@@ -645,6 +799,22 @@ function AppearancePanel() {
   const setZoom = (id) => {
     setZoomState(id)
     setNativeZoom(Number(id))
+    haptic('tap')
+  }
+
+    const toggleIntro = (on) => {
+    setIntroOn(on)
+    try {
+      localStorage.setItem(INTRO_NATIVE_KEY, on ? 'true' : 'false')
+      window.dispatchEvent(new StorageEvent('storage', { key: INTRO_NATIVE_KEY }))
+    } catch {}
+    if (!on) {
+      stopIntroObserver()
+      introRestore()
+    } else {
+      const mode = ctxRef.storage.get(INTRO_MODE_KEY, 'native')
+      applyIntroMode(mode === 'custom' ? 'custom' : 'native')
+    }
     haptic('tap')
   }
 
@@ -670,7 +840,8 @@ function AppearancePanel() {
   }, [introHeadline, introTagline, introMode])
 
   return jsxs('div', {
-    className: 'flex w-72 flex-col p-3',
+    className: 'flex flex-col p-3',
+    style: { width: '21rem' },
     children: [
       // 标题（右上角 = 主题三档切换：明亮/暗色/系统）
       jsxs('div', {
@@ -727,6 +898,32 @@ function AppearancePanel() {
               )
             }
           )
+        ]
+      }),
+
+      // 字体
+      jsxs('div', {
+        className: 'flex items-center gap-2.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
+        children: [
+          jsx('span', {
+            className: 'flex size-6 shrink-0 items-center justify-center',
+            children: jsx(icons.CircleLetterA, { className: 'size-3.5 text-(--ui-text-secondary)' })
+          }),
+          jsxs('div', {
+            className: 'min-w-0 flex-1',
+            children: [
+              jsx('div', { className: 'text-[0.75rem] leading-tight', children: '字体' }),
+              jsx('div', {
+                className: 'mt-0.5 text-[0.6875rem] leading-tight text-(--ui-text-tertiary)',
+                children: '界面字体 · 霞鹜文楷'
+              })
+            ]
+          }),
+          jsx(Switch, {
+            checked: font,
+            onCheckedChange: toggleFont,
+            'aria-label': '字体'
+          })
         ]
       }),
 
@@ -793,29 +990,264 @@ function AppearancePanel() {
         ]
       }),
 
-      // 字体
+      // 标签栏
       jsxs('div', {
         className: 'flex items-center gap-2.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
         children: [
           jsx('span', {
             className: 'flex size-6 shrink-0 items-center justify-center',
-            children: jsx(icons.CircleLetterA, { className: 'size-3.5 text-(--ui-text-secondary)' })
+            children: jsx(icons.AppWindow, { className: 'size-3.5 text-(--ui-text-secondary)' })
           }),
           jsxs('div', {
             className: 'min-w-0 flex-1',
             children: [
-              jsx('div', { className: 'text-[0.75rem] leading-tight', children: '字体' }),
+              jsx('div', { className: 'text-[0.75rem] leading-tight', children: '标签栏' }),
               jsx('div', {
                 className: 'mt-0.5 text-[0.6875rem] leading-tight text-(--ui-text-tertiary)',
-                children: '界面字体 · 霞鹜文楷'
+                children: '切换/新建会话后生效'
               })
             ]
           }),
-          jsx(Switch, {
-            checked: font,
-            onCheckedChange: toggleFont,
-            'aria-label': '字体'
+          jsx(SegmentedControl, {
+            options: TABSTRIP_OPTIONS,
+            value: tabStrip,
+            onChange: setTabStrip,
+            className: 'shrink-0'
           })
+        ]
+      }),
+
+      // 会话列表密度
+      jsxs('div', {
+        className: 'flex items-center gap-2.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
+        children: [
+          jsx('span', {
+            className: 'flex size-6 shrink-0 items-center justify-center',
+            children: jsx(icons.FileText, { className: 'size-3.5 text-(--ui-text-secondary)' })
+          }),
+          jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: '会话列表密度' }),
+          jsx(SegmentedControl, {
+            options: DENSITY_OPTIONS,
+            value: density,
+            onChange: setDensity,
+            className: 'shrink-0'
+          })
+        ]
+      }),
+
+      // 聊天背景
+      jsxs('div', {
+        className: 'flex items-center gap-2.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
+        children: [
+          jsx('span', {
+            className: 'flex size-6 shrink-0 items-center justify-center',
+            children: jsx(icons.FileImage, { className: 'size-3.5 text-(--ui-text-secondary)' })
+          }),
+          jsxs('div', {
+            className: 'min-w-0 flex-1',
+            children: [
+              jsx('div', { className: 'text-[0.75rem] leading-tight', children: '聊天背景' }),
+              jsx('div', {
+                className: 'mt-0.5 text-[0.6875rem] leading-tight text-(--ui-text-tertiary)',
+                children: '对话后方那张淡淡的雕像图片'
+              })
+            ]
+          }),
+          jsx(SegmentedControl, {
+            options: [
+              { id: 'off', label: '关' },
+              { id: 'on', label: '开' }
+            ],
+            value: backdrop ? 'on' : 'off',
+            onChange: (id) => toggleBackdrop(id === 'on'),
+            className: 'shrink-0'
+          })
+        ]
+      }),
+
+      // 窗口透明
+      jsxs('div', {
+        className: 'flex flex-col gap-1.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
+        children: [
+          jsxs('div', {
+            className: 'flex items-center gap-2.5',
+            children: [
+              jsx('span', {
+                className: 'flex size-6 shrink-0 items-center justify-center',
+                children: jsx(icons.Eye, { className: 'size-3.5 text-(--ui-text-secondary)' })
+              }),
+              jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: '窗口透明' }),
+              jsx(SegmentedControl, {
+                options: [
+                  { id: 'clear', label: '透明' },
+                  { id: 'glass', label: '玻璃' }
+                ],
+                value: translucencyMode,
+                onChange: changeTranslucencyMode,
+                className: 'shrink-0'
+              })
+            ]
+          }),
+          jsxs('div', {
+            className: 'flex items-center gap-2 px-0.5',
+            children: [
+              jsx('span', {
+                className: 'shrink-0 text-[0.625rem] text-(--ui-text-quaternary)',
+                children: translucencyMode === 'glass' ? '色调' : '强度'
+              }),
+              jsx('input', {
+                type: 'range',
+                min: 0,
+                max: 100,
+                step: 1,
+                value: intensity,
+                onChange: (e) => changeIntensity(Number(e.target.value)),
+                style: SLIDER_STYLE,
+                className: 'min-w-0 flex-1 cursor-pointer',
+                'aria-label': '透明强度'
+              }),
+              jsx('span', {
+                style: { width: '32px' },
+                className: 'shrink-0 text-right text-[0.625rem] tabular-nums text-(--ui-text-tertiary)',
+                children: intensity + '%'
+              })
+            ]
+          }),
+          translucencyMode === 'glass' &&
+            jsxs('div', {
+              className: 'flex flex-col gap-1',
+              children: [
+                jsxs('div', {
+                  className: 'flex items-center gap-2 px-0.5',
+                  children: [
+                    jsx('span', {
+                      className: 'shrink-0 text-[0.625rem] text-(--ui-text-quaternary)',
+                      children: '淡出'
+                    }),
+                    jsx('input', {
+                      type: 'range',
+                      min: 0,
+                      max: 100,
+                      step: 1,
+                      value: fade,
+                      onChange: (e) => changeFade(Number(e.target.value)),
+                      style: SLIDER_STYLE,
+                      className: 'min-w-0 flex-1 cursor-pointer',
+                      'aria-label': '淡出'
+                    }),
+                    jsx('span', {
+                      style: { width: '32px' },
+                      className: 'shrink-0 text-right text-[0.625rem] tabular-nums text-(--ui-text-tertiary)',
+                      children: fade + '%'
+                    })
+                  ]
+                }),
+                jsxs('div', {
+                  className: 'flex items-center gap-2 px-0.5',
+                  children: [
+                    jsx('span', {
+                      className: 'shrink-0 text-[0.625rem] text-(--ui-text-quaternary)',
+                      children: '磨砂质感'
+                    }),
+                    jsx(SegmentedControl, {
+                      options: GLASS_MATERIALS.map((m3) => ({ id: m3, label: FROST_LABELS[m3] })),
+                      value: glassMaterial,
+                      onChange: setGlassMaterial,
+                      className: 'min-w-0 flex-1'
+                    })
+                  ]
+                }),
+                jsxs('div', {
+                  className: 'flex items-center gap-2 px-0.5',
+                  children: [
+                    jsx('span', {
+                      className: 'shrink-0 text-[0.625rem] text-(--ui-text-quaternary)',
+                      children: '应用范围'
+                    }),
+                    jsx(SegmentedControl, {
+                      options: GLASS_SCOPES.map((s3) => ({ id: s3, label: SCOPE_LABELS[s3] })),
+                      value: glassScope,
+                      onChange: setGlassScope,
+                      className: 'min-w-0 flex-1'
+                    })
+                  ]
+                })
+              ]
+            })
+        ]
+      }),
+
+      // 开场标识（新会话空态字标 + 提示语）
+      jsxs('div', {
+        className: 'flex flex-col gap-1.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
+        children: [
+          jsxs('div', {
+            className: 'flex items-center gap-2.5',
+            children: [
+              jsx('span', {
+                className: 'flex size-6 shrink-0 items-center justify-center',
+                children: jsx(icons.MessageSquareText, { className: 'size-3.5 text-(--ui-text-secondary)' })
+              }),
+              jsxs('div', {
+                className: 'min-w-0 flex-1',
+                children: [
+                  jsx('div', { className: 'text-[0.75rem] leading-tight', children: '开场标识' }),
+                  jsx('div', {
+                    className: 'mt-0.5 text-[0.6875rem] leading-tight text-(--ui-text-tertiary)',
+                    children: '新建会话的字标与提示语'
+                  })
+                ]
+              })
+            ]
+          }),
+          jsxs('div', {
+            className: 'flex items-center gap-2.5',
+            children: [
+              jsx('div', { className: 'min-w-0 flex-1' }),
+              jsx(SegmentedControl, {
+                options: [
+                  { id: 'off', label: '关' },
+                  { id: 'on', label: '开' }
+                ],
+                value: introOn ? 'on' : 'off',
+                onChange: (id2) => toggleIntro(id2 === 'on'),
+                className: 'shrink-0'
+              })
+            ]
+          }),
+          introOn &&
+            jsxs('div', {
+              className: 'flex flex-col gap-1.5 pt-0.5',
+              children: [
+          jsx(SegmentedControl, {
+            options: INTRO_OPTIONS,
+            value: introMode,
+            onChange: setIntroMode,
+            className: 'w-full'
+          }),
+          introMode === 'custom' &&
+            jsxs('div', {
+              className: 'flex flex-col gap-1.5 pt-0.5',
+              children: [
+                jsx(Input, {
+                  value: introHeadline,
+                  onChange: (e) => setIntroHeadline(e.target.value),
+                  placeholder: '字标，如 BINSHAO',
+                  className: 'h-7 text-[0.6875rem]',
+                  'aria-label': '自定义字标'
+                }),
+                jsx(Textarea, {
+                  value: introTagline,
+                  onChange: (e) => setIntroTagline(e.target.value),
+                  placeholder: '提示语（留空跟随原生随机文案）',
+                  rows: 2,
+                  className: 'text-[0.6875rem]',
+                  'aria-label': '自定义提示语'
+                })
+              ]
+            })
+              ]
+            })
         ]
       }),
 
@@ -857,59 +1289,6 @@ function AppearancePanel() {
             onChange: setZoom,
             className: 'w-full'
           })
-        ]
-      }),
-
-      // 开场标识（新会话空态字标 + 提示语）
-      jsxs('div', {
-        className: 'flex flex-col gap-1.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
-        children: [
-          jsxs('div', {
-            className: 'flex items-center gap-2.5',
-            children: [
-              jsx('span', {
-                className: 'flex size-6 shrink-0 items-center justify-center',
-                children: jsx(icons.MessageSquareText, { className: 'size-3.5 text-(--ui-text-secondary)' })
-              }),
-              jsxs('div', {
-                className: 'min-w-0 flex-1',
-                children: [
-                  jsx('div', { className: 'text-[0.75rem] leading-tight', children: '开场标识' }),
-                  jsx('div', {
-                    className: 'mt-0.5 text-[0.6875rem] leading-tight text-(--ui-text-tertiary)',
-                    children: '新建会话的字标与提示语'
-                  })
-                ]
-              })
-            ]
-          }),
-          jsx(SegmentedControl, {
-            options: INTRO_OPTIONS,
-            value: introMode,
-            onChange: setIntroMode,
-            className: 'w-full'
-          }),
-          introMode === 'custom' &&
-            jsxs('div', {
-              className: 'flex flex-col gap-1.5 pt-0.5',
-              children: [
-                jsx(Input, {
-                  value: introHeadline,
-                  onChange: (e) => setIntroHeadline(e.target.value),
-                  placeholder: '字标，如 BINSHAO',
-                  className: 'h-7 text-[0.6875rem]',
-                  'aria-label': '自定义字标'
-                }),
-                jsx(Textarea, {
-                  value: introTagline,
-                  onChange: (e) => setIntroTagline(e.target.value),
-                  placeholder: '提示语（留空跟随原生随机文案）',
-                  rows: 2,
-                  className: 'text-[0.6875rem]',
-                  'aria-label': '自定义提示语'
-                })
-              ]
-            })
         ]
       }),
 
