@@ -185,6 +185,87 @@ function removeFont() {
 const INTRO_SLOT = '[data-slot="aui_intro"]'
 let introObserver = null
 const introOriginalTexts = new Map()   // 叶子元素 → 原始文本（切回原生/禁用时恢复）
+let introNativeLastWritten = null      // 本插件最后写入的原生键值（区分自己写 / 外部改）
+let introUninstallHook = null          // setItem 包装的还原函数
+let introModeSubscribers = new Set()   // 面板订阅者（外部改动时刷新弹窗 UI）
+
+function writeIntroNative(value) {
+  try {
+    localStorage.setItem(INTRO_NATIVE_KEY, value)
+    introNativeLastWritten = value
+  } catch {
+    // storage 不可用时静默跳过，注入层不受影响
+  }
+}
+
+// ── 与原生设置页双向同步 ──────────────────────────────────────────
+// 设置页开关 = 真实 DOM 按钮：#setting-field-appearance.intro-splash 内的
+// button[role=switch]（Radix Switch，aria-label=「开场标识」）。
+// 读状态 → aria-checked；写状态 → 程序化 click（走原生 onCheckedChange，
+// atom/滑块/落盘全部真实更新，与手点等价）。
+function findIntroSettingSwitch() {
+  const field =
+    document.getElementById('setting-field-appearance.intro-splash') ||
+    Array.from(document.querySelectorAll('[id^="setting-field-"]')).find((el) =>
+      el.querySelector('button[role="switch"][aria-label="开场标识"]')
+    )
+  return field ? field.querySelector('button[role="switch"]') : null
+}
+
+function readIntroSettingState() {
+  const btn = findIntroSettingSwitch()
+  return btn ? btn.getAttribute('aria-checked') === 'true' : null
+}
+
+// hub 档位变化时，若设置页开关可见且状态不一致，程序化点击对齐
+function syncIntroSettingSwitch(mode) {
+  const btn = findIntroSettingSwitch()
+  if (!btn) return
+  const wantOn = mode !== 'off'
+  if ((btn.getAttribute('aria-checked') === 'true') !== wantOn) {
+    btn.click()
+  }
+}
+
+function handleIntroNativeWrite(key, value) {
+  if (key !== INTRO_NATIVE_KEY) return
+  if (value === introNativeLastWritten) {
+    // 自己刚写的：记账已同步，无需反应
+    return
+  }
+  const current = ctxRef ? ctxRef.storage.get(INTRO_MODE_KEY, 'native') : 'native'
+  let next = null
+  if (value === 'false' && current !== 'off') next = 'off'
+  else if (value === 'true' && current === 'off') next = 'native'
+  else {
+    introNativeLastWritten = value   // 外部写入但语义无变化，认领即可
+    return
+  }
+  introNativeLastWritten = value
+  if (ctxRef) ctxRef.storage.set(INTRO_MODE_KEY, next)
+  applyIntroMode(next)
+  introModeSubscribers.forEach((cb) => cb(next))
+}
+
+function installIntroStorageHook() {
+  if (introUninstallHook) return
+  const rawSetItem = Storage.prototype.setItem
+  Storage.prototype.setItem = function (key, value) {
+    rawSetItem.call(this, key, value)
+    try { handleIntroNativeWrite(String(key), String(value)) } catch {}
+  }
+  introUninstallHook = () => { Storage.prototype.setItem = rawSetItem }
+}
+
+function unsubscribeIntroMode(cb) {
+  introModeSubscribers.delete(cb)
+}
+
+// 面板实例订阅（弹窗开时加入）：外部在设置页切开关时，浮窗高亮跟着走
+function subscribeIntroMode(cb) {
+  introModeSubscribers.add(cb)
+  return unsubscribeIntroMode
+}
 
 function introLeafSpans(root) {
   // 字标叶子 span：没有元素子节点的 span（外层 span 只包内层 span，不算叶子）
@@ -264,16 +345,18 @@ function applyIntroMode(mode) {
     introRestore()
   }
 
-  // 原生键落盘：off → false；其余 → true。仅影响重启后的初始状态，
-  // 与原生设置页开关保持最终一致（atom 无监听，不追求运行时同步）。
-  try {
-    localStorage.setItem(INTRO_NATIVE_KEY, mode === 'off' ? 'false' : 'true')
-  } catch {
-    // storage 不可用时静默跳过，注入层不受影响
-  }
+  // 原生键落盘：原生/自定义 = 开；关闭 = 关。与设置页外观开关语义一一对应。
+  writeIntroNative(mode === 'off' ? 'false' : 'true')
+  // 设置页开关若正开着，程序化点击对齐（走原生 onCheckedChange，atom+滑块真实更新）
+  syncIntroSettingSwitch(mode)
 }
 
 function resetIntroOnDispose() {
+  if (introUninstallHook) {
+    introUninstallHook()
+    introUninstallHook = null
+  }
+  introModeSubscribers.clear()
   stopIntroObserver()
   introRestore()
   const style = document.getElementById(INTRO_STYLE_ID)
@@ -360,6 +443,18 @@ function AppearancePanel() {
       }
     }
     const off = subscribeNativeZoom((p) => setZoomState(String(p)))
+    return typeof off === 'function' ? off : undefined
+  }, [])
+
+  // 开场标识档位订阅：设置页切开关时，浮窗高亮即时跟平（推送模型，与 zoom 同款）
+  useEffect(() => {
+    const off = subscribeIntroMode((mode) => {
+      setIntroModeState(mode)
+      if (mode !== 'custom') {
+        // 外部改开关不会带文字变化，仅同步档位即可
+        ctxRef && applyIntroMode(mode)
+      }
+    })
     return typeof off === 'function' ? off : undefined
   }, [])
 
@@ -606,8 +701,18 @@ export default {
       // 按持久化状态初始化（默认开启，与原插件行为一致）
       if (ctx.storage.get(PAPER_KEY, true)) injectPaper()
       if (ctx.storage.get(FONT_KEY, true)) applyFont()
-      // 开场标识：按上次档位恢复注入层（默认原生 = 不注入，只同步原生键）
+      // 开场标识：先与原生键对账（设置页关过 → 插件跟到关闭档），再按档位恢复注入；
+      // 挂 setItem 钩子后，设置页开关改动即时推送过来（与缩放 onChanged 同款推送模型）
+      try {
+        const nativeVal = localStorage.getItem(INTRO_NATIVE_KEY)
+        if (nativeVal != null) introNativeLastWritten = nativeVal
+        if (nativeVal === 'false') ctx.storage.set(INTRO_MODE_KEY, 'off')
+        else if (nativeVal === 'true' && ctx.storage.get(INTRO_MODE_KEY, 'native') === 'off') {
+          ctx.storage.set(INTRO_MODE_KEY, 'native')
+        }
+      } catch {}
       applyIntroMode(ctx.storage.get(INTRO_MODE_KEY, 'native'))
+      installIntroStorageHook()
       // 界面缩放走原生机制（window.hermesDesktop.zoom）。
       // 挂模块级常驻监听：与弹窗开关无关，保证 Settings / View 菜单 / Cmd± 改缩放时
       // 反向同步（哪怕 hub 弹窗此刻没开，下次打开也已是最新值）。
