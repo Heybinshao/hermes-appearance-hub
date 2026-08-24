@@ -561,14 +561,20 @@ async function loadOfficialStores() {
             continue
           }
           // backdrop atom：boolean 值，用键验证法区分 intro-splash
-          if (typeof cur === 'boolean' && !officialStores.backdrop) {
+          if (typeof cur === 'boolean') {
+            console.info('[appearance-hub] 发现 boolean atom, 当前值:', cur)
             try {
+              const beforeBd = localStorage.getItem(BACKDROP_KEY)
               localStorage.setItem(BACKDROP_KEY, String(!cur))
-              if (localStorage.getItem(BACKDROP_KEY) === String(!cur)) {
+              const afterBd = localStorage.getItem(BACKDROP_KEY)
+              if (afterBd !== beforeBd && afterBd === String(!cur)) {
                 officialStores.backdrop = v
-                localStorage.setItem(BACKDROP_KEY, String(cur))
-              } else { localStorage.removeItem(BACKDROP_KEY) }
-            } catch {}
+                console.info('[appearance-hub] ✅ 识别为 backdrop atom')
+              } else {
+                console.info('[appearance-hub] 非 backdrop（键未变化）')
+              }
+              localStorage.setItem(BACKDROP_KEY, String(beforeBd ?? String(cur)))
+            } catch (err) { console.warn('[appearance-hub] 键验证异常:', err?.message) }
           }
         }
       } catch {}
@@ -1049,6 +1055,7 @@ function AppearancePanel() {
             ]
           }),
           jsx(Switch, {
+            style: { marginRight: '2px' },
             checked: font,
             onCheckedChange: toggleFont,
             'aria-label': '字体'
@@ -1078,6 +1085,7 @@ function AppearancePanel() {
                 ]
               }),
               jsx(Switch, {
+                style: { marginRight: '2px' },
                 checked: paper,
                 onCheckedChange: togglePaper,
                 'aria-label': '纸纹'
