@@ -18,7 +18,7 @@
  *       状态栏入口用 declarative data 通道（variant:'menu' + menuContent），
  *       不自定义 Popover —— 与核心状态栏工具同一条渲染路径，最稳。
  */
-import { haptic, host, icons, Switch, SegmentedControl, Input, Textarea } from '@hermes/plugin-sdk'
+import { haptic, host, icons, Switch, SegmentedControl, Input, Textarea, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@hermes/plugin-sdk'
 import { useState, useEffect } from 'react'
 import { jsx, jsxs } from 'react/jsx-runtime'
 
@@ -56,6 +56,26 @@ const INTRO_HEADLINE_KEY = 'intro.headline'    // 自定义字标
 const INTRO_TAGLINE_KEY = 'intro.tagline'      // 自定义提示语（空 = 跟随原生随机文案）
 const INTRO_STYLE_ID = ID + '-intro-style'
 const INTRO_NATIVE_KEY = 'hermes.desktop.intro-splash.v1'  // 只写不改名，与原生设置页保持一致
+
+// ── 纸纹试验配方（暗色治泛白 / 浅色治发灰）──────────────────────────
+// 暗色 screen 泛白根因：fractalNoise 均值~50% 灰 + screen（只提亮）→ 整屏抬向灰白。
+//   思路：噪点分布「贴地」——大部分像素近黑（screen 下不影响底色），少数颗粒微亮。
+// 浅色 multiply 发灰同理反向：噪点应「贴顶」——大部分近白（multiply 不影响底色），少数纤维压暗。
+// 档位从左到右由轻到重；默认「极轻」。
+const DARK_RECIPES = {
+  light: { label: '极轻', baseFreq: 0.9, octaves: 3, gain: 1.3, offset: -0.15, blur: 0.6, opacity: 0.12 },
+  subtle: { label: '微调', baseFreq: 0.9, octaves: 3, gain: 1.3, offset: -0.35, blur: 0.6, opacity: 0.2 },
+  classic: { label: '经典', baseFreq: 0.9, octaves: 3, gain: 1.3, offset: -0.15, blur: 0.6, opacity: 0.2 },
+  ground: { label: '贴地', baseFreq: 0.9, octaves: 3, gain: 2.2, offset: -0.55, blur: 0.6, opacity: 0.2 }
+}
+const LIGHT_RECIPES = {
+  light: { label: '极轻', baseFreq: 0.72, octaves: 4, gain: null, offset: null, blur: null, opacity: 0.18 },
+  subtle: { label: '微调', baseFreq: 0.72, octaves: 4, gain: 1.3, offset: 0.35, blur: null, opacity: 0.3 },
+  classic: { label: '经典', baseFreq: 0.72, octaves: 4, gain: null, offset: null, blur: null, opacity: 0.3 },
+  top: { label: '贴顶', baseFreq: 0.72, octaves: 4, gain: 2.0, offset: 0.55, blur: null, opacity: 0.3 }
+}
+const DARK_RECIPE_KEY = 'paper.darkRecipe'
+const LIGHT_RECIPE_KEY = 'paper.lightRecipe'
 
 const INTRO_OPTIONS = [
   { id: 'native', label: '原生' },
@@ -97,12 +117,16 @@ function applyPaperMode() {
     html.classList.contains('dark') || html.dataset.hermesMode === 'dark'
 
   if (dark) {
-    layer.style.backgroundImage = makeTexture(0.9, 3, 1.3, -0.15, 0.6)
-    layer.style.opacity = '0.2'
+    const key = ctxRef ? ctxRef.storage.get(DARK_RECIPE_KEY, 'light') : 'light'
+    const r = DARK_RECIPES[key] || DARK_RECIPES.light
+    layer.style.backgroundImage = makeTexture(r.baseFreq, r.octaves, r.gain, r.offset, r.blur)
+    layer.style.opacity = String(r.opacity)
     layer.style.mixBlendMode = 'screen'
   } else {
-    layer.style.backgroundImage = makeTexture(0.72, 4)
-    layer.style.opacity = '0.3'
+    const key = ctxRef ? ctxRef.storage.get(LIGHT_RECIPE_KEY, 'light') : 'light'
+    const r = LIGHT_RECIPES[key] || LIGHT_RECIPES.light
+    layer.style.backgroundImage = makeTexture(r.baseFreq, r.octaves, r.gain, r.offset, r.blur)
+    layer.style.opacity = String(r.opacity)
     layer.style.mixBlendMode = 'multiply'
   }
 }
@@ -422,9 +446,112 @@ function subscribeNativeZoom(cb) {
   return () => { zoomSubscribers.delete(cb) }
 }
 
+// ── 主题模式（明亮/暗色/跟随系统）─────────────────────────────────
+// 官方机制（themes/context.tsx）：mode 存 per-profile localStorage——
+//   default profile 写全局键 hermes-desktop-mode-v1；命名 profile 写
+//   hermes-desktop-profile-modes-v1 record。官方监听 storage 事件
+// （APPEARANCE_KEYS），setItem 即全窗口实时生效——与 zoom 同款官方管道。
+const MODE_GLOBAL_KEY = 'hermes-desktop-mode-v1'
+const MODE_RECORD_KEY = 'hermes-desktop-profile-modes-v1'
+const THEME_MODES = [
+  { id: 'light', label: '明亮' },
+  { id: 'dark', label: '暗色' },
+  { id: 'system', label: '系统' }
+]
+
+function readThemeMode() {
+  try {
+    const profile = localStorage.getItem('hermes-active-profile') || 'default'
+    if (profile !== 'default') {
+      const rec = JSON.parse(localStorage.getItem(MODE_RECORD_KEY) || '{}')
+      if (rec[profile]) return rec[profile]
+    }
+    return localStorage.getItem(MODE_GLOBAL_KEY) || 'system'
+  } catch {
+    return 'system'
+  }
+}
+
+function writeThemeMode(mode) {
+  try {
+    const profile = localStorage.getItem('hermes-active-profile') || 'default'
+    if (profile === 'default') {
+      // 同键重写也会触发原生 storage 监听（同窗口 setItem 不自动派发，手动补发）
+      localStorage.setItem(MODE_GLOBAL_KEY, mode)
+      window.dispatchEvent(new StorageEvent('storage', { key: MODE_GLOBAL_KEY }))
+    } else {
+      const rec = JSON.parse(localStorage.getItem(MODE_RECORD_KEY) || '{}')
+      rec[profile] = mode
+      localStorage.setItem(MODE_RECORD_KEY, JSON.stringify(rec))
+      window.dispatchEvent(new StorageEvent('storage', { key: MODE_RECORD_KEY }))
+    }
+  } catch {}
+}
+
+function resolvedDark() {
+  return document.documentElement.classList.contains('dark') ||
+    document.documentElement.dataset.hermesMode === 'dark'
+}
+
+// ── 主题（皮肤）───────────────────────────────────────────────────
+// 与模式同款官方管道：skin 存 hermes-desktop-theme-v2（default）/ profile-themes record，
+// 官方 storage 监听实时生效。列表 = 原生 BUILTIN_THEME_LIST（presets.ts）。
+const SKIN_GLOBAL_KEY = 'hermes-desktop-theme-v2'
+const SKIN_RECORD_KEY = 'hermes-desktop-profile-themes-v1'
+const THEMES = [
+  { id: 'nous', label: 'Nous' },
+  { id: 'nous-alt', label: 'Nous Alt' },
+  { id: 'github', label: 'GitHub' },
+  { id: 'catppuccin', label: 'Catppuccin' },
+  { id: 'everforest', label: 'Everforest' },
+  { id: 'solarized', label: 'Solarized' },
+  { id: 'midnight', label: 'Midnight' },
+  { id: 'ember', label: 'Ember' },
+  { id: 'mono', label: 'Mono' },
+  { id: 'cyberpunk', label: 'Cyberpunk' },
+  { id: 'slate', label: 'Slate' }
+]
+
+function readThemeSkin() {
+  try {
+    const profile = localStorage.getItem('hermes-desktop-active-profile-v1') || 'default'
+    if (profile !== 'default') {
+      const rec = JSON.parse(localStorage.getItem(SKIN_RECORD_KEY) || '{}')
+      if (rec[profile]) return rec[profile]
+    }
+    return localStorage.getItem(SKIN_GLOBAL_KEY) || 'nous'
+  } catch {
+    return 'nous'
+  }
+}
+
+function writeThemeSkin(skin) {
+  try {
+    const profile = localStorage.getItem('hermes-desktop-active-profile-v1') || 'default'
+    if (profile === 'default') {
+      localStorage.setItem(SKIN_GLOBAL_KEY, skin)
+      window.dispatchEvent(new StorageEvent('storage', { key: SKIN_GLOBAL_KEY }))
+    } else {
+      const rec = JSON.parse(localStorage.getItem(SKIN_RECORD_KEY) || '{}')
+      rec[profile] = skin
+      localStorage.setItem(SKIN_RECORD_KEY, JSON.stringify(rec))
+      window.dispatchEvent(new StorageEvent('storage', { key: SKIN_RECORD_KEY }))
+    }
+  } catch {}
+}
+
 // ── 面板 ──────────────────────────────────────────────────────────
 function AppearancePanel() {
   const [paper, setPaper] = useState(() => ctxRef.storage.get(PAPER_KEY, true))
+  const [darkRecipe, setDarkRecipeState] = useState(() => {
+    const v = ctxRef.storage.get(DARK_RECIPE_KEY, 'light')
+    return DARK_RECIPES[v] ? v : 'light'
+  })
+  const [lightRecipe, setLightRecipeState] = useState(() => {
+    const v = ctxRef.storage.get(LIGHT_RECIPE_KEY, 'light')
+    return LIGHT_RECIPES[v] ? v : 'light'
+  })
+  const [themeMode, setThemeModeState] = useState(() => readThemeMode())
   const [font, setFont] = useState(() => ctxRef.storage.get(FONT_KEY, true))
   const [zoom, setZoomState] = useState(() => '90')
   const [introMode, setIntroModeState] = useState(() => ctxRef.storage.get(INTRO_MODE_KEY, 'native'))
@@ -458,11 +585,52 @@ function AppearancePanel() {
     return typeof off === 'function' ? off : undefined
   }, [])
 
+  // 主题/模式跟随：别处（设置页/另一窗口）改外观时，本窗口原生 storage 监听已处理
+  // 界面重绘；这里只需让弹窗高亮跟上——监听同一组键。
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === MODE_GLOBAL_KEY || e.key === MODE_RECORD_KEY ||
+          e.key === SKIN_GLOBAL_KEY || e.key === SKIN_RECORD_KEY) {
+        setThemeModeState(readThemeMode())
+        setThemeState(readThemeSkin())
+      }
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
+
   const togglePaper = (next) => {
     setPaper(next)
     ctxRef.storage.set(PAPER_KEY, next)
     if (next) injectPaper()
     else removePaper()
+    haptic('tap')
+  }
+
+  const setThemeMode = (mode) => {
+    setThemeModeState(mode)
+    writeThemeMode(mode)
+    haptic('tap')
+  }
+
+  const setDarkRecipe = (id) => {
+    setDarkRecipeState(id)
+    ctxRef.storage.set(DARK_RECIPE_KEY, id)
+    applyPaperMode()
+    haptic('tap')
+  }
+
+  const setLightRecipe = (id) => {
+    setLightRecipeState(id)
+    ctxRef.storage.set(LIGHT_RECIPE_KEY, id)
+    applyPaperMode()
+    haptic('tap')
+  }
+
+  const [theme, setThemeState] = useState(() => readThemeSkin())
+  const setTheme = (id) => {
+    setThemeState(id)
+    writeThemeSkin(id)
     haptic('tap')
   }
 
@@ -504,7 +672,7 @@ function AppearancePanel() {
   return jsxs('div', {
     className: 'flex w-72 flex-col p-3',
     children: [
-      // 标题
+      // 标题（右上角 = 主题三档切换：明亮/暗色/系统）
       jsxs('div', {
         className:
           'mb-1 flex items-center gap-2.5 border-b border-(--ui-stroke-secondary) px-1 pb-2',
@@ -514,48 +682,113 @@ function AppearancePanel() {
               'flex size-7 shrink-0 items-center justify-center rounded-md border border-(--ui-stroke-secondary) bg-(--ui-bg-elevated)',
             children: jsx(icons.Palette, { className: 'size-3.5 text-(--ui-text-secondary)' })
           }),
-          jsxs('div', {
-            className: 'min-w-0 flex-1',
-            children: [
-              jsx('div', { className: 'text-[0.75rem] leading-tight font-medium', children: '外观' }),
-              jsx('div', {
-                className: 'mt-0.5 text-[0.6875rem] leading-tight text-(--ui-text-tertiary)',
-                children: '纸纹 · 字体 · 缩放'
-              })
-            ]
-          }),
-          jsx('div', {
-            className: 'text-[0.625rem] text-(--ui-text-quaternary)',
-            children: document.documentElement.classList.contains('dark') ||
-              document.documentElement.dataset.hermesMode === 'dark'
-              ? '深色'
-              : '浅色'
+          jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight font-medium', children: '外观' }),
+          jsx(SegmentedControl, {
+            options: THEME_MODES,
+            value: themeMode,
+            onChange: setThemeMode,
+            className: 'shrink-0 scale-90'
           })
         ]
       }),
-
-      // 纸纹
+      // 主题（原生皮肤列表，平铺网格）
       jsxs('div', {
-        className: 'flex items-center gap-2.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
+        className: 'flex flex-col gap-1.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
         children: [
-          jsx('span', {
-            className: 'flex size-6 shrink-0 items-center justify-center',
-            children: jsx(icons.Layers3, { className: 'size-3.5 text-(--ui-text-secondary)' })
-          }),
           jsxs('div', {
-            className: 'min-w-0 flex-1',
+            className: 'flex items-center gap-2.5',
             children: [
-              jsx('div', { className: 'text-[0.75rem] leading-tight', children: '纸纹' }),
-              jsx('div', {
-                className: 'mt-0.5 text-[0.6875rem] leading-tight text-(--ui-text-tertiary)',
-                children: '宣纸噪点层 · 随明暗自动切换'
+              jsx('span', {
+                className: 'flex size-6 shrink-0 items-center justify-center',
+                children: jsx(icons.Palette, { className: 'size-3.5 text-(--ui-text-secondary)' })
+              }),
+              jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: '主题' })
+            ]
+          }),
+          jsx(
+            'div',
+            {
+              style: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '4px', padding: '0 10px' },
+              children: THEMES.map((t) =>
+                jsx(
+                  'button',
+                  {
+                    type: 'button',
+                    onClick: () => setTheme(t.id),
+                    className:
+                      'rounded-md border px-1.5 py-1 text-[0.625rem] transition-colors ' +
+                      (t.id === theme
+                        ? 'border-(--ui-accent) bg-(--ui-control-active-background) font-medium text-(--ui-text-primary)'
+                        : 'border-(--ui-stroke-secondary) text-(--ui-text-secondary) hover:bg-(--chrome-action-hover)'),
+                    children: t.label
+                  },
+                  t.id
+                )
+              )
+            }
+          )
+        ]
+      }),
+
+      // 纸纹（开关 + 配方同属一个悬浮高亮容器）
+      jsxs('div', {
+        className: 'flex flex-col gap-1 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
+        children: [
+          jsxs('div', {
+            className: 'flex items-center gap-2.5',
+            children: [
+              jsx('span', {
+                className: 'flex size-6 shrink-0 items-center justify-center',
+                children: jsx(icons.Layers3, { className: 'size-3.5 text-(--ui-text-secondary)' })
+              }),
+              jsxs('div', {
+                className: 'min-w-0 flex-1',
+                children: [
+                  jsx('div', { className: 'text-[0.75rem] leading-tight', children: '纸纹' }),
+                  jsx('div', {
+                    className: 'mt-0.5 text-[0.6875rem] leading-tight text-(--ui-text-tertiary)',
+                    children: '宣纸噪点层 · 随明暗自动切换'
+                  })
+                ]
+              }),
+              jsx(Switch, {
+                checked: paper,
+                onCheckedChange: togglePaper,
+                'aria-label': '纸纹'
               })
             ]
           }),
-          jsx(Switch, {
-            checked: paper,
-            onCheckedChange: togglePaper,
-            'aria-label': '纸纹'
+
+          // 配方（明亮在上，暗色在下；从左到右由轻到重，默认极轻）
+          jsxs('div', {
+            className: 'flex items-center gap-2 px-0.5',
+            children: [
+              jsx('span', {
+                className: 'shrink-0 text-[0.625rem] text-(--ui-text-quaternary)',
+                children: '明亮配方'
+              }),
+              jsx(SegmentedControl, {
+                options: Object.entries(LIGHT_RECIPES).map(([id, r]) => ({ id, label: r.label })),
+                value: lightRecipe,
+                onChange: setLightRecipe,
+                className: 'min-w-0 flex-1'
+              })
+            ]
+          }),
+          jsxs('div', {
+            className: 'flex items-center gap-2 px-0.5',
+            children: [
+              jsx('span', {
+                className: 'shrink-0 text-[0.625rem] text-(--ui-text-quaternary)',
+                children: '暗色配方'
+              }),
+              jsx(SegmentedControl, {
+                options: Object.entries(DARK_RECIPES).map(([id, r]) => ({ id, label: r.label })),
+                value: darkRecipe,
+                onChange: setDarkRecipe,
+                className: 'min-w-0 flex-1'
+              })
+            ]
           })
         ]
       }),
@@ -746,7 +979,7 @@ export default {
           variant: 'menu',                              // → 核心 DropdownMenu
           label: '外观',
           icon: jsx(icons.Palette, { className: 'size-3.5' }),
-          title: '外观设置 — 纸纹 · 字体 · 原生缩放',
+          title: '外观设置',
           menuAlign: 'end',
           menuContent: jsx(AppearancePanel, {}),
           menuClassName: 'w-auto border-(--ui-stroke-secondary) p-0',
