@@ -1315,72 +1315,53 @@ function AppearancePanel() {
                 className: 'flex size-6 shrink-0 items-center justify-center',
                 children: jsx(icons.MessageSquareText, { className: 'size-3.5 text-(--ui-text-secondary)' })
               }),
-              jsxs('div', {
-                className: 'min-w-0 flex-1',
-                children: [
-                  jsx('div', { className: 'text-[0.75rem] leading-tight', children: '开场标识' }),
-                  jsx('div', {
-                    className: 'mt-0.5 text-[0.6875rem] leading-tight text-(--ui-text-tertiary)',
-                    children: '新建会话的字标与提示语'
-                  })
-                ]
-              })
-            ]
-          }),
-          jsxs('div', {
-            className: 'flex items-center gap-2.5',
-            children: [
-              jsx('div', { className: 'min-w-0 flex-1' }),
-              jsx('div', {
-                className: 'shrink-0',
-                style: { marginTop: '-2px' },
-                children: jsx(SegmentedControl, {
-                  options: [
-                    { id: 'off', label: '关' },
-                    { id: 'on', label: '开' }
-                  ],
-                  value: introOn ? 'on' : 'off',
-                  onChange: (id2) => toggleIntro(id2 === 'on')
-                })
+              jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: '开场标识' }),
+              jsx(SegmentedControl, {
+                options: [
+                  { id: 'off', label: '关' },
+                  { id: 'on', label: '开' }
+                ],
+                value: introOn ? 'on' : 'off',
+                onChange: (id2) => toggleIntro(id2 === 'on'),
+                className: 'shrink-0'
               })
             ]
           }),
           introOn &&
             jsxs('div', {
-              className: 'flex flex-col gap-1.5 pt-0.5',
+              className: 'flex flex-col gap-1.5 px-0.5',
               children: [
-          jsx(SegmentedControl, {
-            options: INTRO_OPTIONS,
-            value: introMode,
-            onChange: setIntroMode,
-            className: 'w-full'
-          }),
-          introMode === 'custom' &&
-            jsxs('div', {
-              className: 'flex flex-col gap-1.5 pt-0.5',
-              children: [
-                jsx(Input, {
-                  value: introHeadline,
-                  onChange: (e) => setIntroHeadline(e.target.value),
-                  placeholder: '字标，如 BINSHAO',
-                  className: 'h-7 text-[0.6875rem]',
-                  'aria-label': '自定义字标'
+                jsx(SegmentedControl, {
+                  options: INTRO_OPTIONS,
+                  value: introMode,
+                  onChange: setIntroMode,
+                  className: 'w-full'
                 }),
-                jsx(Textarea, {
-                  value: introTagline,
-                  onChange: (e) => setIntroTagline(e.target.value),
-                  placeholder: '提示语（留空跟随原生随机文案）',
-                  rows: 2,
-                  className: 'text-[0.6875rem]',
-                  'aria-label': '自定义提示语'
-                })
-              ]
-            })
+                introMode === 'custom' &&
+                  jsxs('div', {
+                    className: 'flex flex-col gap-1.5',
+                    children: [
+                      jsx(Input, {
+                        value: introHeadline,
+                        onChange: (e) => setIntroHeadline(e.target.value),
+                        placeholder: '字标，如 BINSHAO',
+                        className: 'h-7 text-[0.6875rem]',
+                        'aria-label': '自定义字标'
+                      }),
+                      jsx(Textarea, {
+                        value: introTagline,
+                        onChange: (e) => setIntroTagline(e.target.value),
+                        placeholder: '提示语（留空跟随原生随机文案）',
+                        rows: 2,
+                        className: 'text-[0.6875rem]',
+                        'aria-label': '自定义提示语'
+                      })
+                    ]
+                  })
               ]
             })
         ]
       }),
-
       // 界面缩放
       jsxs('div', {
         className: 'flex flex-col gap-1.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
