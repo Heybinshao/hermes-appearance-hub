@@ -1151,7 +1151,7 @@ function AppearancePanel() {
           jsx(
             'div',
             {
-              style: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '4px', padding: '0 10px' },
+              style: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '4px', padding: '0' },
               children: THEMES.map((t) =>
                 jsx(
                   'button',
@@ -1192,7 +1192,6 @@ function AppearancePanel() {
             ]
           }),
           jsx(Switch, {
-            style: { marginRight: '2px' },
             checked: font,
             onCheckedChange: toggleFont,
             'aria-label': '字体'
@@ -1222,7 +1221,6 @@ function AppearancePanel() {
                 ]
               }),
               jsx(Switch, {
-                style: { marginRight: '2px' },
                 checked: paper,
                 onCheckedChange: togglePaper,
                 'aria-label': '纸纹'
@@ -1232,7 +1230,7 @@ function AppearancePanel() {
 
           // 配方（明亮在上，暗色在下；从左到右由轻到重，默认极轻）
           jsxs('div', {
-            className: 'flex items-center gap-2 px-0.5',
+            className: 'flex items-center gap-2',
             children: [
               jsx('span', {
                 className: 'shrink-0 text-[0.625rem] text-(--ui-text-quaternary)',
@@ -1247,7 +1245,7 @@ function AppearancePanel() {
             ]
           }),
           jsxs('div', {
-            className: 'flex items-center gap-2 px-0.5',
+            className: 'flex items-center gap-2',
             children: [
               jsx('span', {
                 className: 'shrink-0 text-[0.625rem] text-(--ui-text-quaternary)',
@@ -1286,7 +1284,7 @@ function AppearancePanel() {
             options: TABSTRIP_OPTIONS.map((o) => ({ ...o, label: label(o) })),
             value: tabStrip,
             onChange: setTabStrip,
-            className: 'ml-auto mr-0.5 w-[150px]'
+            className: 'ml-auto w-[150px]'
           })
         ]
       }),
@@ -1304,7 +1302,7 @@ function AppearancePanel() {
             options: DENSITY_OPTIONS.map((o) => ({ ...o, label: label(o) })),
             value: density,
             onChange: setDensity,
-            className: 'ml-auto mr-0.5 w-[150px]'
+            className: 'ml-auto w-[150px]'
           })
         ]
       }),
@@ -1334,7 +1332,7 @@ function AppearancePanel() {
             ],
             value: backdrop ? 'on' : 'off',
             onChange: (id) => toggleBackdrop(id === 'on'),
-            className: 'ml-auto mr-0.5 w-[150px]'
+            className: 'ml-auto w-[150px]'
           })
         ]
       }),
@@ -1358,12 +1356,12 @@ function AppearancePanel() {
                 ],
                 value: translucencyMode,
                 onChange: changeTranslucencyMode,
-                className: 'mr-0.5 shrink-0'
+                className: 'shrink-0'
               })
             ]
           }),
           jsxs('div', {
-            className: 'flex items-center gap-2 px-0.5',
+            className: 'flex items-center gap-2',
             children: [
               jsx('span', {
                 className: 'w-[52px] shrink-0 text-[0.625rem] leading-tight text-(--ui-text-quaternary)',
@@ -1392,7 +1390,7 @@ function AppearancePanel() {
               className: 'flex flex-col gap-1',
               children: [
                 jsxs('div', {
-                  className: 'flex items-center gap-2 px-0.5',
+                  className: 'flex items-center gap-2',
                   children: [
                     jsx('span', {
                       className: 'w-[52px] shrink-0 text-[0.625rem] leading-tight text-(--ui-text-quaternary)',
@@ -1417,7 +1415,7 @@ function AppearancePanel() {
                   ]
                 }),
                 jsxs('div', {
-                  className: 'flex items-center gap-2 px-0.5',
+                  className: 'flex items-center gap-2',
                   children: [
                     jsx('span', {
                       className: 'shrink-0 text-[0.625rem] text-(--ui-text-quaternary)',
@@ -1432,7 +1430,7 @@ function AppearancePanel() {
                   ]
                 }),
                 jsxs('div', {
-                  className: 'flex items-center gap-2 px-0.5',
+                  className: 'flex items-center gap-2',
                   children: [
                     jsx('span', {
                       className: 'shrink-0 text-[0.625rem] text-(--ui-text-quaternary)',
@@ -1479,13 +1477,13 @@ function AppearancePanel() {
                 ],
                 value: introOn ? 'on' : 'off',
                 onChange: (id2) => toggleIntro(id2 === 'on'),
-                className: 'ml-auto mr-0.5 w-[150px]'
+                className: 'ml-auto w-[150px]'
               })
             ]
           }),
           introOn &&
             jsxs('div', {
-              className: 'flex flex-col gap-1.5 px-0.5',
+              className: 'flex flex-col gap-1.5',
               children: [
                 jsx(SegmentedControl, {
                   options: INTRO_OPTIONS.map((o) => ({ ...o, label: label(o) })),
