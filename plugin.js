@@ -18,7 +18,7 @@
  *       状态栏入口用 declarative data 通道（variant:'menu' + menuContent），
  *       不自定义 Popover —— 与核心状态栏工具同一条渲染路径，最稳。
  */
-import { haptic, host, icons, Switch, SegmentedControl, Input, Textarea, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, usePluginI18n } from '@hermes/plugin-sdk'
+import { haptic, host, icons, Switch, SegmentedControl, Input, Textarea, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, usePluginI18n, useI18n } from '@hermes/plugin-sdk'
 import { useState, useEffect } from 'react'
 import { jsx, jsxs } from 'react/jsx-runtime'
 
@@ -844,6 +844,9 @@ function AppearancePanel() {
   // 响应式翻译器：locale 切换即重渲染（模块级 OPTIONS 的 labelKey 也在此统一取词）
   const t = usePluginI18n(ID)
   const label = (o) => (o.labelKey ? t(o.labelKey) : o.label)
+  // en 下单行区块改纵向通栏（标题在上、控件 w-full 在下，与界面缩放同构）；zh/zh-hant 保持横排
+  const { locale } = useI18n()
+  const stackedLayout = locale === 'en'
   const [paper, setPaper] = useState(() => ctxRef.storage.get(PAPER_KEY, true))
   const [darkRecipe, setDarkRecipeState] = useState(() => {
     const v = ctxRef.storage.get(DARK_RECIPE_KEY, 'light')
@@ -1262,16 +1265,18 @@ function AppearancePanel() {
         ]
       }),
 
-      // 标签栏
+      // 标签栏（en 纵向通栏：标题在上控件在下；zh 横排）
       jsxs('div', {
-        className: 'flex items-center gap-2.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
+        className: stackedLayout
+          ? 'flex flex-col gap-1.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)'
+          : 'flex items-center gap-2.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
         children: [
           jsx('span', {
             className: 'flex size-6 shrink-0 items-center justify-center',
             children: jsx(icons.AppWindow, { className: 'size-3.5 text-(--ui-text-secondary)' })
           }),
           jsxs('div', {
-            className: 'min-w-0 flex-1',
+            className: stackedLayout ? 'min-w-0' : 'min-w-0 flex-1',
             children: [
               jsx('div', { className: 'text-[0.75rem] leading-tight', children: t('tabstrip.title') }),
               jsx('div', {
@@ -1284,25 +1289,31 @@ function AppearancePanel() {
             options: TABSTRIP_OPTIONS.map((o) => ({ ...o, label: label(o) })),
             value: tabStrip,
             onChange: setTabStrip,
-            className: 'ml-auto w-[150px]'
+            className: stackedLayout ? 'w-full' : 'ml-auto w-[150px]'
           })
         ]
       }),
 
-      // 会话列表密度
+      // 会话列表密度（en 纵向通栏，同标签栏）
       jsxs('div', {
-        className: 'flex items-center gap-2.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
+        className: stackedLayout
+          ? 'flex flex-col gap-1.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)'
+          : 'flex items-center gap-2.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
         children: [
           jsx('span', {
             className: 'flex size-6 shrink-0 items-center justify-center',
             children: jsx(icons.FileText, { className: 'size-3.5 text-(--ui-text-secondary)' })
           }),
-          jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: t('density.title') }),
+          jsx('div', {
+            className: stackedLayout ? 'min-w-0 self-start' : 'min-w-0 flex-1',
+            style: stackedLayout ? { order: -1 } : undefined,
+            children: t('density.title')
+          }),
           jsx(SegmentedControl, {
             options: DENSITY_OPTIONS.map((o) => ({ ...o, label: label(o) })),
             value: density,
             onChange: setDensity,
-            className: 'ml-auto w-[150px]'
+            className: stackedLayout ? 'w-full' : 'ml-auto w-[150px]'
           })
         ]
       }),
