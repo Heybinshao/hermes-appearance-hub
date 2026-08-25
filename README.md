@@ -1,5 +1,7 @@
 # Hermes Appearance Hub
 
+![版本](https://img.shields.io/badge/版本-v2.0.0-blue)
+
 给 Hermes 桌面端用的**外观整合插件**：把主题、纸纹、字体、缩放、标签栏、密度、聊天背景、窗口透明、开场标识等外观设置收进一个状态栏入口，一键管理，设置持久化。
 
 ## 特性
