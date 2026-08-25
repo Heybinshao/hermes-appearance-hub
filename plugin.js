@@ -1366,7 +1366,7 @@ function AppearancePanel() {
             className: 'flex items-center gap-2 px-0.5',
             children: [
               jsx('span', {
-                className: 'shrink-0 text-[0.625rem] text-(--ui-text-quaternary)',
+                className: 'w-[52px] shrink-0 text-[0.625rem] leading-tight text-(--ui-text-quaternary)',
                 children: translucencyMode === 'glass' ? t('translucency.tint') : t('translucency.intensityLabel'),
               }),
               jsx('input', {
@@ -1395,7 +1395,7 @@ function AppearancePanel() {
                   className: 'flex items-center gap-2 px-0.5',
                   children: [
                     jsx('span', {
-                      className: 'shrink-0 text-[0.625rem] text-(--ui-text-quaternary)',
+                      className: 'w-[52px] shrink-0 text-[0.625rem] leading-tight text-(--ui-text-quaternary)',
                       children: t('translucency.fade')
                     }),
                     jsx('input', {
