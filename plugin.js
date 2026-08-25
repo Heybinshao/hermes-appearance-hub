@@ -1135,7 +1135,7 @@ function AppearancePanel() {
   // ── 面板结构（双栏改造）：原单列 children 原地转为区块列表，零转写、渲染不变 ──
   // ── 对齐总纲（设计宪法）──
   // 1. 右缘：全面板唯一基线 = 区块 px-2 的 8px；任何控件不得用 marginRight/内层 px 偏移离开此线
-  // 2. 左缘两级：一级 = px-2 的 8px（图标/标题）；二级 = 42px（嵌套行标签/展开项，内联 paddingLeft:34px 或图标列自然缩进）
+  // 2. 左缘两级：一级 = px-2 的 8px（图标/标题/展开项）；展开项与上方控件同宽通栏，不缩进
   // 3. 控件左缘三级：嵌套行 = ControlRow 结构（左标签内联定宽52px + gap-2，右栏flex-1）；
   //    定宽禁用 tailwind arbitrary 类——宿主Tailwind不为插件文件编译，w-[52px] 会静默失效
   // 1'. 四角同一基线：标题行/底部行也用 px-2，禁 px-1——全面板只有一条左右基线
@@ -1524,9 +1524,7 @@ function AppearancePanel() {
                 }),
                 introMode === 'custom' &&
                   jsxs('div', {
-                    // 二级左缘对齐：区块 px-2(8px) + 34px = 42px，与嵌套行标签同线
                     className: 'flex flex-col gap-1.5',
-                    style: { paddingLeft: '34px' },
                     children: [
                       jsx(Input, {
                         value: introHeadline,
