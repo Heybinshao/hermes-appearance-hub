@@ -569,10 +569,15 @@ async function loadOfficialStores() {
         }
         // 统一键验证：找出写 BACKDROP_KEY 的 boolean atom（即 $backdrop），
         // 探测后全部还原。与密度同款机制。
-        // 探测期间临时隐藏开场标识 DOM 防止 intro-splash atom 被翻转时的视觉闪烁
+        // 探测期间临时隐藏开场标识 DOM 防止视觉闪烁，
+        // 并抑制 setItem 钩子（防止 intro-splash atom 被翻转时误移除自定义注入层）
         const introEl = document.querySelector('[data-slot="aui_intro"]')
         const prevVis = introEl ? introEl.style.visibility : ''
         if (introEl) introEl.style.visibility = 'hidden'
+        if (introUninstallHook) {
+          introUninstallHook()
+          introUninstallHook = null
+        }
         if (foundBoolAtoms && foundBoolAtoms.length >= 2) {
           const snapshot = foundBoolAtoms.map(a => a.get())
           const beforeBd = localStorage.getItem(BACKDROP_KEY)
@@ -588,8 +593,9 @@ async function loadOfficialStores() {
             console.info('[appearance-hub] ✅ backdrop atom 已识别')
           }
         }
-        // 恢复开场标识可见性（探测时临时隐藏防闪烁）
+        // 恢复开场标识可见性 + 重装 setItem 钩子
         if (introEl) introEl.style.visibility = prevVis
+        installIntroStorageHook()
       } catch {}
     }
     // store chunk（tabStrip）
