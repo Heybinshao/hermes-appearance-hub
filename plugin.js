@@ -539,6 +539,7 @@ let officialStores = null
 
 async function loadOfficialStores() {
   officialStores ??= {}
+  let foundBoolAtoms = null
   try {
     // 1) 从 DOM script 标签拿主 bundle URL（assets 同目录）
     const scriptEl = document.querySelector('script[src*="index-"]')
@@ -560,8 +561,28 @@ async function loadOfficialStores() {
             if (!officialStores.density) officialStores.density = v
             continue
           }
-          // backdrop atom：无法与其他 boolean atom（如命令面板开关）安全区分，
-          // 键验证法会误触发副作用（实测误开了命令面板）。改由设置页点击或落盘兜底。
+          // 收集 boolean atom（backdrop / intro-splash / 命令面板开关等）
+          if (typeof cur === 'boolean') {
+            if (!foundBoolAtoms) foundBoolAtoms = []
+            foundBoolAtoms.push(v)
+          }
+        }
+        // 统一键验证：找出写 BACKDROP_KEY 的那个（即 $backdrop），探测后全部还原。
+        // 还原所有被翻转的 atom（含误触的命令面板开关等），确保无副作用残留。
+        if (foundBoolAtoms && foundBoolAtoms.length >= 2) {
+          const snapshot = foundBoolAtoms.map(a => a.get())
+          const beforeBd = localStorage.getItem(BACKDROP_KEY)
+          let bdIdx = -1
+          for (let bi = 0; bi < foundBoolAtoms.length; bi++) {
+            foundBoolAtoms[bi].set(!snapshot[bi])
+            if (localStorage.getItem(BACKDROP_KEY) !== beforeBd) { bdIdx = bi }
+            foundBoolAtoms[bi].set(snapshot[bi])
+            if (bdIdx >= 0) break
+          }
+          if (bdIdx >= 0) {
+            officialStores.backdrop = foundBoolAtoms[bdIdx]
+            console.info('[appearance-hub] ✅ backdrop atom 已识别')
+          }
         }
       } catch {}
     }
@@ -849,7 +870,7 @@ function AppearancePanel() {
 
   const toggleBackdrop = (on) => {
     setBackdropState(on)
-    // 落盘即时；界面随下次布局变化生效。设置页开着时 syncRowByTitle 可实时点击
+    // 落盘即时；设置页开着时程序化点击官方开关实时生效
     writeBackdrop(on)
     syncRowByTitle('聊天背景', on ? '开' : '关')
     haptic('tap')
