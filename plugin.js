@@ -1119,14 +1119,29 @@ function AppearancePanel() {
   // ── 面板结构（双栏改造）：原单列 children 原地转为区块列表，零转写、渲染不变 ──
   // ── 对齐总纲（设计宪法）──
   // 1. 右缘：全面板唯一基线 = 区块 px-2 的 8px；任何控件不得用 marginRight/内层 px 偏移离开此线
-  // 2. 左缘两级：一级 = px-2 的 8px（图标/标题）；二级 = 42px（嵌套行标签/展开项，用 pl-[34px] 或图标列自然缩进）
-  // 3. 控件左缘三级：嵌套行内 = 二级 + 标签定宽 w-[52px] + gap-2 → 控件左端全部同线（配方/滑杆/磨砂/范围）
-  // 4. 同类同宽：滑杆百分比数字一律 32px 右对齐；开关贴右缘零偏移
+  // 2. 左缘两级：一级 = px-2 的 8px（图标/标题）；二级 = 42px（嵌套行标签/展开项，内联 paddingLeft:34px 或图标列自然缩进）
+  // 3. 控件左缘三级：嵌套行 = ControlRow 结构（左标签内联定宽52px + gap-2，右栏flex-1）；
+  //    定宽禁用 tailwind arbitrary 类——宿主Tailwind不为插件文件编译，w-[52px] 会静默失效
+  // 1'. 四角同一基线：标题行/底部行也用 px-2，禁 px-1——全面板只有一条左右基线
+  // 5'. 布局关键值禁依赖宿主编译的 tailwind 类（pr-3 曾未编译致双栏不对称、w-[52px] 曾未编译
+  //     致 en 控件起点参差）；定宽/定距一律内联 style={{...}}
+  const ControlRow = ({ label, children }) =>
+    jsxs('div', {
+      className: 'flex items-center gap-2',
+      children: [
+        jsx('span', {
+          style: { width: '52px', flexShrink: 0 },
+          className: 'text-[0.625rem] leading-tight text-(--ui-text-quaternary)',
+          children: label
+        }),
+        jsx('div', { className: 'min-w-0 flex-1', children })
+      ]
+    })
   const secChildren = [
       // 标题（右上角 = 主题三档切换：明亮/暗色/系统）
       jsxs('div', {
         className:
-          'mb-1 flex items-center gap-2.5 border-b border-(--ui-stroke-secondary) px-1 pb-2',
+          'mb-1 flex items-center gap-2.5 border-b border-(--ui-stroke-secondary) px-2 pb-2',
         children: [
           jsx('span', {
             className:
@@ -1277,7 +1292,7 @@ function AppearancePanel() {
           : 'flex items-center gap-2.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
         children: [
           jsxs('div', {
-            className: stackedLayout ? 'flex min-w-0 items-center gap-2.5' : 'min-w-0 flex-1',
+            className: 'flex min-w-0 items-center gap-2.5',
             children: [
               jsx('span', {
                 className: 'flex size-6 shrink-0 items-center justify-center',
@@ -1299,7 +1314,8 @@ function AppearancePanel() {
             options: TABSTRIP_OPTIONS.map((o) => ({ ...o, label: label(o) })),
             value: tabStrip,
             onChange: setTabStrip,
-            className: stackedLayout ? 'w-full' : 'ml-auto w-[150px]'
+            className: stackedLayout ? 'w-full' : 'ml-auto',
+            style: stackedLayout ? undefined : { width: '150px' }
           })
         ]
       }),
@@ -1311,7 +1327,7 @@ function AppearancePanel() {
           : 'flex items-center gap-2.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
         children: [
           jsxs('div', {
-            className: stackedLayout ? 'flex min-w-0 items-center gap-2.5' : 'min-w-0 flex-1',
+            className: 'flex min-w-0 items-center gap-2.5',
             children: [
               jsx('span', {
                 className: 'flex size-6 shrink-0 items-center justify-center',
@@ -1324,7 +1340,8 @@ function AppearancePanel() {
             options: DENSITY_OPTIONS.map((o) => ({ ...o, label: label(o) })),
             value: density,
             onChange: setDensity,
-            className: stackedLayout ? 'w-full' : 'ml-auto w-[150px]'
+            className: stackedLayout ? 'w-full' : 'ml-auto',
+            style: stackedLayout ? undefined : { width: '150px' }
           })
         ]
       }),
@@ -1354,7 +1371,8 @@ function AppearancePanel() {
             ],
             value: backdrop ? 'on' : 'off',
             onChange: (id) => toggleBackdrop(id === 'on'),
-            className: 'ml-auto w-[150px]'
+            className: 'ml-auto',
+            style: { width: '150px' }
           })
         ]
       }),
@@ -1382,89 +1400,75 @@ function AppearancePanel() {
               })
             ]
           }),
-          jsxs('div', {
-            className: 'flex items-center gap-2',
-            children: [
-              jsx('span', {
-                className: 'w-[52px] shrink-0 text-[0.625rem] leading-tight text-(--ui-text-quaternary)',
-                children: translucencyMode === 'glass' ? t('translucency.tint') : t('translucency.intensityLabel'),
-              }),
-              jsx('input', {
-                type: 'range',
-                min: 0,
-                max: 100,
-                step: 1,
-                value: intensity,
-                onChange: (e) => changeIntensity(Number(e.target.value)),
-                style: SLIDER_STYLE,
-                className: 'min-w-0 flex-1 cursor-pointer',
-                'aria-label': '透明强度'
-              }),
-              jsx('span', {
-                style: { width: '32px' },
-                className: 'shrink-0 text-right text-[0.625rem] tabular-nums text-(--ui-text-tertiary)',
-                children: intensity + '%'
-              })
-            ]
+          jsx(ControlRow, {
+            label: translucencyMode === 'glass' ? t('translucency.tint') : t('translucency.intensityLabel'),
+            children: jsxs('div', {
+              className: 'flex min-w-0 items-center gap-2',
+              children: [
+                jsx('input', {
+                  type: 'range',
+                  min: 0,
+                  max: 100,
+                  step: 1,
+                  value: intensity,
+                  onChange: (e) => changeIntensity(Number(e.target.value)),
+                  style: SLIDER_STYLE,
+                  className: 'min-w-0 flex-1 cursor-pointer',
+                  'aria-label': '透明强度'
+                }),
+                jsx('span', {
+                  style: { width: '32px', flexShrink: 0 },
+                  className: 'text-right text-[0.625rem] tabular-nums text-(--ui-text-tertiary)',
+                  children: intensity + '%'
+                })
+              ]
+            })
           }),
           translucencyMode === 'glass' &&
             jsxs('div', {
               className: 'flex flex-col gap-1',
               children: [
-                jsxs('div', {
-                  className: 'flex items-center gap-2',
-                  children: [
-                    jsx('span', {
-                      className: 'w-[52px] shrink-0 text-[0.625rem] leading-tight text-(--ui-text-quaternary)',
-                      children: t('translucency.fade')
-                    }),
-                    jsx('input', {
-                      type: 'range',
-                      min: 0,
-                      max: 100,
-                      step: 1,
-                      value: fade,
-                      onChange: (e) => changeFade(Number(e.target.value)),
-                      style: SLIDER_STYLE,
-                      className: 'min-w-0 flex-1 cursor-pointer',
-                      'aria-label': '淡出'
-                    }),
-                    jsx('span', {
-                      style: { width: '32px' },
-                      className: 'shrink-0 text-right text-[0.625rem] tabular-nums text-(--ui-text-tertiary)',
-                      children: fade + '%'
-                    })
-                  ]
+                jsx(ControlRow, {
+                  label: t('translucency.fade'),
+                  children: jsxs('div', {
+                    className: 'flex min-w-0 items-center gap-2',
+                    children: [
+                      jsx('input', {
+                        type: 'range',
+                        min: 0,
+                        max: 100,
+                        step: 1,
+                        value: fade,
+                        onChange: (e) => changeFade(Number(e.target.value)),
+                        style: SLIDER_STYLE,
+                        className: 'min-w-0 flex-1 cursor-pointer',
+                        'aria-label': '淡出'
+                      }),
+                      jsx('span', {
+                        style: { width: '32px', flexShrink: 0 },
+                        className: 'text-right text-[0.625rem] tabular-nums text-(--ui-text-tertiary)',
+                        children: fade + '%'
+                      })
+                    ]
+                  })
                 }),
-                jsxs('div', {
-                  className: 'flex items-center gap-2',
-                  children: [
-                    jsx('span', {
-                      className: 'w-[52px] shrink-0 text-[0.625rem] leading-tight text-(--ui-text-quaternary)',
-                      children: t('translucency.materialTitle')
-                    }),
-                    jsx(SegmentedControl, {
-                      options: GLASS_MATERIALS.map((m3) => ({ id: m3, label: t(FROST_LABELS[m3]) })),
-                      value: glassMaterial,
-                      onChange: setGlassMaterial,
-                      className: 'min-w-0 flex-1'
-                    })
-                  ]
+                jsx(ControlRow, {
+                  label: t('translucency.materialTitle'),
+                  children: jsx(SegmentedControl, {
+                    options: GLASS_MATERIALS.map((m3) => ({ id: m3, label: t(FROST_LABELS[m3]) })),
+                    value: glassMaterial,
+                    onChange: setGlassMaterial,
+                    className: 'w-full'
+                  })
                 }),
-                jsxs('div', {
-                  className: 'flex items-center gap-2',
-                  children: [
-                    jsx('span', {
-                      className: 'w-[52px] shrink-0 text-[0.625rem] leading-tight text-(--ui-text-quaternary)',
-                      children: t('translucency.scopeTitle')
-                    }),
-                    jsx(SegmentedControl, {
-                      options: GLASS_SCOPES.map((s3) => ({ id: s3, label: t(SCOPE_LABELS[s3]) })),
-                      value: glassScope,
-                      onChange: setGlassScope,
-                      className: 'min-w-0 flex-1'
-                    })
-                  ]
+                jsx(ControlRow, {
+                  label: t('translucency.scopeTitle'),
+                  children: jsx(SegmentedControl, {
+                    options: GLASS_SCOPES.map((s3) => ({ id: s3, label: t(SCOPE_LABELS[s3]) })),
+                    value: glassScope,
+                    onChange: setGlassScope,
+                    className: 'w-full'
+                  })
                 })
               ]
             })
@@ -1499,7 +1503,8 @@ function AppearancePanel() {
                 ],
                 value: introOn ? 'on' : 'off',
                 onChange: (id2) => toggleIntro(id2 === 'on'),
-                className: 'ml-auto w-[150px]'
+                className: 'ml-auto',
+                style: { width: '150px' }
               })
             ]
           }),
@@ -1516,7 +1521,8 @@ function AppearancePanel() {
                 introMode === 'custom' &&
                   jsxs('div', {
                     // 二级左缘对齐：区块 px-2(8px) + 34px = 42px，与嵌套行标签同线
-                    className: 'flex flex-col gap-1.5 pl-[34px]',
+                    className: 'flex flex-col gap-1.5',
+                    style: { paddingLeft: '34px' },
                     children: [
                       jsx(Input, {
                         value: introHeadline,
@@ -1582,7 +1588,7 @@ function AppearancePanel() {
 
       // 底部提示 + 单栏/双栏布局开关
       jsxs('div', {
-        className: 'mt-1 flex items-center gap-2 border-t border-(--ui-stroke-secondary) px-1 pt-2',
+        className: 'mt-1 flex items-center gap-2 border-t border-(--ui-stroke-secondary) px-2 pt-2',
         children: [
           jsx('div', {
             className: 'min-w-0 flex-1 text-[0.625rem] text-(--ui-text-quaternary)',
@@ -1614,14 +1620,16 @@ function AppearancePanel() {
         ? jsxs('div', {
             className: 'flex flex-row',
             children: [
-              // 左列：主题 → 字体 → 纸纹 → 标签栏 → 密度
+              // 左列：主题 → 字体 → 纸纹 → 标签栏 → 密度（pr 内联——宿主未编译 .pr-3，曾致双栏不对称）
               jsxs('div', {
-                className: 'flex min-w-0 flex-1 flex-col pr-3',
+                className: 'flex min-w-0 flex-1 flex-col',
+                style: { paddingRight: '12px' },
                 children: [secTheme, secFont, secPaper, secTabStrip, secDensity]
               }),
-              // 右列：聊天背景 → 窗口透明 → 开场标识 → 缩放
+              // 右列：聊天背景 → 窗口透明 → 开场标识 → 缩放（pl 内联，与左列对称）
               jsxs('div', {
-                className: 'flex min-w-0 flex-1 flex-col border-l border-(--ui-stroke-secondary) pl-3',
+                className: 'flex min-w-0 flex-1 flex-col border-l border-(--ui-stroke-secondary)',
+                style: { paddingLeft: '12px' },
                 children: [secBackdrop, secTranslucency, secIntro, secZoom]
               })
             ]
