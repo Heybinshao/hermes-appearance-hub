@@ -56,6 +56,7 @@ const INTRO_HEADLINE_KEY = 'intro.headline'    // 自定义字标
 const INTRO_TAGLINE_KEY = 'intro.tagline'      // 自定义提示语（空 = 跟随原生随机文案）
 const INTRO_STYLE_ID = ID + '-intro-style'
 const INTRO_NATIVE_KEY = 'hermes.desktop.intro-splash.v1'  // 只写不改名，与原生设置页保持一致
+const DUAL_COL_KEY = 'layout.dualColumn'        // 面板布局：true=双栏（默认）/ false=单栏
 
 // ── 纸纹试验配方（暗色治泛白 / 浅色治发灰）──────────────────────────
 // 暗色 screen 泛白根因：fractalNoise 均值~50% 灰 + screen（只提亮）→ 整屏抬向灰白。
@@ -786,6 +787,13 @@ function AppearancePanel() {
   })
   const [introHeadline, setIntroHeadline] = useState(() => ctxRef.storage.get(INTRO_HEADLINE_KEY, 'HERMES AGENT'))
   const [introTagline, setIntroTagline] = useState(() => ctxRef.storage.get(INTRO_TAGLINE_KEY, ''))
+  // 面板布局：双栏（默认）/ 单栏，底部提示行右侧开关切换
+  const [dualCol, setDualColState] = useState(() => ctxRef.storage.get(DUAL_COL_KEY, true))
+  const setDualCol = (on) => {
+    setDualColState(on)
+    ctxRef.storage.set(DUAL_COL_KEY, on)
+    haptic('tap')
+  }
 
   // 面板挂载后建立同步：优先用模块级 liveZoom 缓存，未缓存则回退原生读取；
   // 订阅模块级变化（弹窗关闭即退订，但原生常驻监听在 register 时已挂，故反向永不断）
@@ -991,10 +999,8 @@ function AppearancePanel() {
     return () => clearTimeout(t)
   }, [introHeadline, introTagline, introMode])
 
-  return jsxs('div', {
-    className: 'flex flex-col p-3',
-    style: { width: '21rem' },
-    children: [
+  // ── 面板结构（双栏改造）：原单列 children 原地转为区块列表，零转写、渲染不变 ──
+  const secChildren = [
       // 标题（右上角 = 主题三档切换：明亮/暗色/系统）
       jsxs('div', {
         className:
@@ -1439,11 +1445,56 @@ function AppearancePanel() {
         ]
       }),
 
-      // 底部提示
-      jsx('div', {
-        className: 'mt-1 border-t border-(--ui-stroke-secondary) px-1 pt-2 text-[0.625rem] text-(--ui-text-quaternary)',
-        children: '修改即时生效 · 重启后保留'
+      // 底部提示 + 单栏/双栏布局开关
+      jsxs('div', {
+        className: 'mt-1 flex items-center gap-2 border-t border-(--ui-stroke-secondary) px-1 pt-2',
+        children: [
+          jsx('div', {
+            className: 'min-w-0 flex-1 text-[0.625rem] text-(--ui-text-quaternary)',
+            children: '修改即时生效 · 重启后保留'
+          }),
+          jsx(SegmentedControl, {
+            options: [
+              { id: 'single', label: '单栏' },
+              { id: 'dual', label: '双栏' }
+            ],
+            value: dualCol ? 'dual' : 'single',
+            onChange: (id) => setDualCol(id === 'dual'),
+            className: 'shrink-0 scale-90'
+          })
+        ]
       })
+    ]
+  ]
+  // 区块索引：0=标题 1=主题 2=字体 3=纸纹 4=标签栏 5=密度 6=聊天背景 7=窗口透明 8=开场标识 9=缩放 10=底部提示+布局开关
+  const [secTitle, secTheme, secFont, secPaper, secTabStrip, secDensity, secBackdrop,
+         secTranslucency, secIntro, secZoom, secFooter] = secChildren
+
+  // 双栏：标题通栏 + 左右两列；单栏：与改前完全一致的顺序；底部提示两种模式共用
+  return jsxs('div', {
+    className: 'flex flex-col p-3',
+    style: { width: dualCol ? '42rem' : '21rem' },
+    children: [
+      secTitle,
+      dualCol
+        ? jsxs('div', {
+            className: 'flex flex-row',
+            children: [
+              // 左列：主题 → 字体 → 纸纹 → 标签栏 → 密度
+              jsxs('div', {
+                className: 'flex min-w-0 flex-1 flex-col pr-3',
+                children: [secTheme, secFont, secPaper, secTabStrip, secDensity]
+              }),
+              // 右列：聊天背景 → 窗口透明 → 开场标识 → 缩放
+              jsxs('div', {
+                className: 'flex min-w-0 flex-1 flex-col border-l border-(--ui-stroke-secondary) pl-3',
+                children: [secBackdrop, secTranslucency, secIntro, secZoom]
+              })
+            ]
+          })
+        : [secTheme, secFont, secPaper, secTabStrip, secDensity, secBackdrop,
+           secTranslucency, secIntro, secZoom],
+      secFooter
     ]
   })
 }
