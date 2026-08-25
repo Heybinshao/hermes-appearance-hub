@@ -283,18 +283,19 @@ function handleIntroNativeWrite(key, value) {
     // 自己刚写的：记账已同步，无需反应
     return
   }
-  const current = ctxRef ? ctxRef.storage.get(INTRO_MODE_KEY, 'native') : 'native'
-  let next = null
-  if (value === 'false' && current !== 'off') next = 'off'
-  else if (value === 'true' && current === 'off') next = 'native'
-  else {
-    introNativeLastWritten = value   // 外部写入但语义无变化，认领即可
-    return
-  }
+  // 新两档语义：开关只控制显隐，不改变 introMode（native/custom 保持不变）。
+  // false = 暂时隐藏注入层；true = 按 hub 当前档位恢复。
   introNativeLastWritten = value
-  if (ctxRef) ctxRef.storage.set(INTRO_MODE_KEY, next)
-  applyIntroMode(next)
-  introModeSubscribers.forEach((cb) => cb(next))
+  const current = ctxRef ? ctxRef.storage.get(INTRO_MODE_KEY, 'native') : 'native'
+  if (value === 'false') {
+    stopIntroObserver()
+    introRestore()
+    const style = document.getElementById(INTRO_STYLE_ID)
+    if (style) style.remove()
+  } else {
+    applyIntroMode(current)
+  }
+  introModeSubscribers.forEach((cb) => cb(current))
 }
 
 function installIntroStorageHook() {
