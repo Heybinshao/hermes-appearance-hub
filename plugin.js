@@ -1270,23 +1270,28 @@ function AppearancePanel() {
         ]
       }),
 
-      // 标签栏（en 纵向通栏：标题在上控件在下；zh 横排）
+      // 标签栏（en 纵向通栏：图标+标题一行、控件通栏在下，与界面缩放同构；zh 横排）
       jsxs('div', {
         className: stackedLayout
           ? 'flex flex-col gap-1.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)'
           : 'flex items-center gap-2.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
         children: [
-          jsx('span', {
-            className: 'flex size-6 shrink-0 items-center justify-center',
-            children: jsx(icons.AppWindow, { className: 'size-3.5 text-(--ui-text-secondary)' })
-          }),
           jsxs('div', {
-            className: stackedLayout ? 'min-w-0' : 'min-w-0 flex-1',
+            className: stackedLayout ? 'flex min-w-0 items-center gap-2.5' : 'min-w-0 flex-1',
             children: [
-              jsx('div', { className: 'text-[0.75rem] leading-tight', children: t('tabstrip.title') }),
-              jsx('div', {
-                className: 'mt-0.5 text-[0.6875rem] leading-tight text-(--ui-text-tertiary)',
-                children: t('tabstrip.desc')
+              jsx('span', {
+                className: 'flex size-6 shrink-0 items-center justify-center',
+                children: jsx(icons.AppWindow, { className: 'size-3.5 text-(--ui-text-secondary)' })
+              }),
+              jsxs('div', {
+                className: 'min-w-0 flex-1',
+                children: [
+                  jsx('div', { className: 'text-[0.75rem] leading-tight', children: t('tabstrip.title') }),
+                  jsx('div', {
+                    className: 'mt-0.5 text-[0.6875rem] leading-tight text-(--ui-text-tertiary)',
+                    children: t('tabstrip.desc')
+                  })
+                ]
               })
             ]
           }),
@@ -1305,14 +1310,15 @@ function AppearancePanel() {
           ? 'flex flex-col gap-1.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)'
           : 'flex items-center gap-2.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
         children: [
-          jsx('span', {
-            className: 'flex size-6 shrink-0 items-center justify-center',
-            children: jsx(icons.FileText, { className: 'size-3.5 text-(--ui-text-secondary)' })
-          }),
-          jsx('div', {
-            className: stackedLayout ? 'min-w-0 self-start' : 'min-w-0 flex-1',
-            style: stackedLayout ? { order: -1 } : undefined,
-            children: t('density.title')
+          jsxs('div', {
+            className: stackedLayout ? 'flex min-w-0 items-center gap-2.5' : 'min-w-0 flex-1',
+            children: [
+              jsx('span', {
+                className: 'flex size-6 shrink-0 items-center justify-center',
+                children: jsx(icons.FileText, { className: 'size-3.5 text-(--ui-text-secondary)' })
+              }),
+              jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: t('density.title') })
+            ]
           }),
           jsx(SegmentedControl, {
             options: DENSITY_OPTIONS.map((o) => ({ ...o, label: label(o) })),
