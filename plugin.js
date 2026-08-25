@@ -18,9 +18,120 @@
  *       状态栏入口用 declarative data 通道（variant:'menu' + menuContent），
  *       不自定义 Popover —— 与核心状态栏工具同一条渲染路径，最稳。
  */
-import { haptic, host, icons, Switch, SegmentedControl, Input, Textarea, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@hermes/plugin-sdk'
+import { haptic, host, icons, Switch, SegmentedControl, Input, Textarea, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, usePluginI18n } from '@hermes/plugin-sdk'
 import { useState, useEffect } from 'react'
 import { jsx, jsxs } from 'react/jsx-runtime'
+
+// ── i18n 文案树（跟随 app 的 display.language，解析链：当前 locale → en → 键名）──
+// 与官方设置页用词对齐（i18n/en.ts、zh.ts、zh-hant.ts appearance 段）；
+// 仅插件特有概念（纸纹配方档位、单双栏布局）为自有翻译。主题名不翻译。
+export const LOCALES = {
+  en: {
+    statusbar: { label: 'Appearance', title: 'Appearance Settings', toggleLabel: 'Appearance Settings' },
+    theme: {
+      title: 'Appearance',
+      modeLight: 'Light', modeDark: 'Dark', modeSystem: 'System',
+      gridTitle: 'Theme'
+    },
+    font: { title: 'Font', desc: 'UI font · LXGW WenKai' },
+    paper: {
+      title: 'Paper Texture', desc: 'Rice-paper grain · follows light/dark',
+      recipeLight: 'Light recipe', recipeDark: 'Dark recipe',
+      recipeLightSet: { light: 'Light', subtle: 'Subtle', classic: 'Classic', top: 'Topped' },
+      recipeDarkSet: { light: 'Light', subtle: 'Subtle', classic: 'Classic', ground: 'Grounded' }
+    },
+    tabstrip: { title: 'Tab Strip', desc: 'Applies after switching/creating a session', auto: 'Auto', always: 'Always', never: 'Never' },
+    density: { title: 'Session List Density', compact: 'Compact', comfortable: 'Comfortable', detailed: 'Detailed' },
+    backdrop: { title: 'Chat Backdrop', desc: 'The faint statue image behind the conversation.', off: 'Off', on: 'On' },
+    translucency: {
+      title: 'Window Translucency', clear: 'Clear', glass: 'Glass',
+      tint: 'Tint', intensityLabel: 'Intensity', fade: 'Fade',
+      materialTitle: 'Frost',
+      materials: { 'under-window': 'Deep', popover: 'Soft', titlebar: 'Bright', header: 'Glare' },
+      scopeTitle: 'Area',
+      scopes: { window: 'Whole window', sidebar: 'Sidebar only' }
+    },
+    intro: {
+      title: 'Intro Splash', desc: 'The wordmark and prompt shown on an empty chat.', off: 'Off', on: 'On',
+      native: 'Native copy', custom: 'Custom',
+      headlinePlaceholder: 'Wordmark, e.g. BINSHAO', taglinePlaceholder: 'Prompt (leave empty to follow native random copy)'
+    },
+    zoom: { title: 'UI Scale', desc: 'Native scaling · synced with Settings/View menu' },
+    layout: { single: 'Single column', dual: 'Dual column' },
+    footer: { tip: 'Changes apply instantly · persist across restarts' },
+    notify: { ready: 'Appearance Hub ready — paper texture, font and native zoom live in the "Appearance" toggle in the status bar', failed: 'Appearance Hub injection failed: ' }
+  },
+  zh: {
+    statusbar: { label: '外观', title: '外观设置', toggleLabel: '外观设置' },
+    theme: {
+      title: '外观',
+      modeLight: '明亮', modeDark: '暗色', modeSystem: '跟随系统',
+      gridTitle: '主题'
+    },
+    font: { title: '字体', desc: '界面字体 · 霞鹜文楷' },
+    paper: {
+      title: '纸纹', desc: '宣纸噪点层 · 随明暗自动切换',
+      recipeLight: '明亮配方', recipeDark: '暗色配方',
+      recipeLightSet: { light: '极轻', subtle: '微调', classic: '经典', top: '贴顶' },
+      recipeDarkSet: { light: '极轻', subtle: '微调', classic: '经典', ground: '贴地' }
+    },
+    tabstrip: { title: '标签栏', desc: '切换/新建会话后生效', auto: '自动', always: '始终', never: '从不' },
+    density: { title: '会话列表密度', compact: '紧凑', comfortable: '舒适', detailed: '详细' },
+    backdrop: { title: '聊天背景', desc: '对话后方那张淡淡的雕像图片', off: '关', on: '开' },
+    translucency: {
+      title: '窗口透明', clear: '透明', glass: '玻璃',
+      tint: '色调', intensityLabel: '强度', fade: '淡出',
+      materialTitle: '磨砂质感',
+      materials: { 'under-window': '深邃', popover: '柔和', titlebar: '明亮', header: '透亮' },
+      scopeTitle: '应用范围',
+      scopes: { window: '整个窗口', sidebar: '仅侧边栏' }
+    },
+    intro: {
+      title: '开场标识', desc: '空白对话中显示的字标和提示语', off: '关', on: '开',
+      native: '原生文案', custom: '自定义',
+      headlinePlaceholder: '字标，如 BINSHAO', taglinePlaceholder: '提示语（留空跟随原生随机文案）'
+    },
+    zoom: { title: '界面缩放', desc: '原生缩放 · 与设置/View菜单同步' },
+    layout: { single: '单栏', dual: '双栏' },
+    footer: { tip: '修改即时生效 · 重启后保留' },
+    notify: { ready: '外观 Hub 已就绪 — 纸纹、字体、原生缩放在状态栏「外观」开关', failed: '外观 Hub 注入失败: ' }
+  },
+  'zh-hant': {
+    statusbar: { label: '外觀', title: '外觀設定', toggleLabel: '外觀設定' },
+    theme: {
+      title: '外觀',
+      modeLight: '明亮', modeDark: '深色', modeSystem: '跟隨系統',
+      gridTitle: '主題'
+    },
+    font: { title: '字型', desc: '介面字型 · 霞鶩文楷' },
+    paper: {
+      title: '紙紋', desc: '宣紙噪點層 · 隨明暗自動切換',
+      recipeLight: '明亮配方', recipeDark: '暗色配方',
+      recipeLightSet: { light: '極輕', subtle: '微調', classic: '經典', top: '貼頂' },
+      recipeDarkSet: { light: '極輕', subtle: '微調', classic: '經典', ground: '貼地' }
+    },
+    tabstrip: { title: '分頁列', desc: '切換/新建會話後生效', auto: '自動', always: '一律', never: '永不' },
+    density: { title: '工作階段列表密度', compact: '緊湊', comfortable: '舒適', detailed: '詳細' },
+    backdrop: { title: '聊天背景', desc: '對話後方那張淡淡的雕像圖片', off: '關閉', on: '開啟' },
+    translucency: {
+      title: '視窗透明', clear: '透明', glass: '玻璃',
+      tint: '色調', intensityLabel: '強度', fade: '淡出',
+      materialTitle: '磨砂質感',
+      materials: { 'under-window': '深邃', popover: '柔和', titlebar: '明亮', header: '透亮' },
+      scopeTitle: '套用範圍',
+      scopes: { window: '整個視窗', sidebar: '僅側邊欄' }
+    },
+    intro: {
+      title: '開場標識', desc: '空白對話中顯示的字標和提示語', off: '關閉', on: '開啟',
+      native: '原生文案', custom: '自訂',
+      headlinePlaceholder: '字標，如 BINSHAO', taglinePlaceholder: '提示語（留空跟隨原生隨機文案）'
+    },
+    zoom: { title: '介面縮放', desc: '原生縮放 · 與設定/View選單同步' },
+    layout: { single: '單欄', dual: '雙欄' },
+    footer: { tip: '修改即時生效 · 重啟後保留' },
+    notify: { ready: '外觀 Hub 已就緒 — 紙紋、字體、原生縮放在狀態列「外觀」開關', failed: '外觀 Hub 注入失敗: ' }
+  }
+}
 
 const ID = 'hermes-appearance-hub'
 const PAPER_KEY = 'paper.enabled'
@@ -64,16 +175,16 @@ const DUAL_COL_KEY = 'layout.dualColumn'        // 面板布局：true=双栏（
 // 浅色 multiply 发灰同理反向：噪点应「贴顶」——大部分近白（multiply 不影响底色），少数纤维压暗。
 // 档位从左到右由轻到重；默认「极轻」。
 const DARK_RECIPES = {
-  light: { label: '极轻', baseFreq: 0.9, octaves: 3, gain: 1.3, offset: -0.15, blur: 0.6, opacity: 0.12 },
-  subtle: { label: '微调', baseFreq: 0.9, octaves: 3, gain: 1.3, offset: -0.35, blur: 0.6, opacity: 0.2 },
-  classic: { label: '经典', baseFreq: 0.9, octaves: 3, gain: 1.3, offset: -0.15, blur: 0.6, opacity: 0.2 },
-  ground: { label: '贴地', baseFreq: 0.9, octaves: 3, gain: 2.2, offset: -0.55, blur: 0.6, opacity: 0.2 }
+  light: { labelKey: 'paper.recipeDarkSet.light', baseFreq: 0.9, octaves: 3, gain: 1.3, offset: -0.15, blur: 0.6, opacity: 0.12 },
+  subtle: { labelKey: 'paper.recipeDarkSet.subtle', baseFreq: 0.9, octaves: 3, gain: 1.3, offset: -0.35, blur: 0.6, opacity: 0.2 },
+  classic: { labelKey: 'paper.recipeDarkSet.classic', baseFreq: 0.9, octaves: 3, gain: 1.3, offset: -0.15, blur: 0.6, opacity: 0.2 },
+  ground: { labelKey: 'paper.recipeDarkSet.ground', baseFreq: 0.9, octaves: 3, gain: 2.2, offset: -0.55, blur: 0.6, opacity: 0.2 }
 }
 const LIGHT_RECIPES = {
-  light: { label: '极轻', baseFreq: 0.72, octaves: 4, gain: 1.3, offset: 0.3, blur: null, opacity: 0.18 },
-  subtle: { label: '微调', baseFreq: 0.72, octaves: 4, gain: 1.15, offset: 0.25, blur: null, opacity: 0.28 },
-  classic: { label: '经典', baseFreq: 0.72, octaves: 4, gain: null, offset: null, blur: null, opacity: 0.3 },
-  top: { label: '贴顶', baseFreq: 0.72, octaves: 4, gain: 1.2, offset: 0.05, blur: null, opacity: 0.35 }
+  light: { labelKey: 'paper.recipeLightSet.light', baseFreq: 0.72, octaves: 4, gain: 1.3, offset: 0.3, blur: null, opacity: 0.18 },
+  subtle: { labelKey: 'paper.recipeLightSet.subtle', baseFreq: 0.72, octaves: 4, gain: 1.15, offset: 0.25, blur: null, opacity: 0.28 },
+  classic: { labelKey: 'paper.recipeLightSet.classic', baseFreq: 0.72, octaves: 4, gain: null, offset: null, blur: null, opacity: 0.3 },
+  top: { labelKey: 'paper.recipeLightSet.top', baseFreq: 0.72, octaves: 4, gain: 1.2, offset: 0.05, blur: null, opacity: 0.35 }
 }
 const DARK_RECIPE_KEY = 'paper.darkRecipe'
 const LIGHT_RECIPE_KEY = 'paper.lightRecipe'
@@ -81,22 +192,22 @@ const LIGHT_RECIPE_KEY = 'paper.lightRecipe'
 // ── 移植：密度 / 标签栏 / 聊天背景 / 窗口透明 ────────────────────────
 const DENSITY_KEY = 'hermes.desktop.sessionListDensity'
 const DENSITY_OPTIONS = [
-  { id: 'compact', label: '紧凑' },
-  { id: 'comfortable', label: '舒适' },
-  { id: 'detailed', label: '详细' }
+  { id: 'compact', labelKey: 'density.compact' },
+  { id: 'comfortable', labelKey: 'density.comfortable' },
+  { id: 'detailed', labelKey: 'density.detailed' }
 ]
 const TABSTRIP_KEY = 'hermes.desktop.tabStripDefault'
 const TABSTRIP_OPTIONS = [
-  { id: 'auto', label: '自动' },
-  { id: 'always', label: '始终' },
-  { id: 'never', label: '从不' }
+  { id: 'auto', labelKey: 'tabstrip.auto' },
+  { id: 'always', labelKey: 'tabstrip.always' },
+  { id: 'never', labelKey: 'tabstrip.never' }
 ]
 const BACKDROP_KEY = 'hermes.desktop.backdrop.v1'
 const TRANSLUCENCY_KEY = 'hermes.desktop.translucency.v2'
 const GLASS_MATERIALS = ['under-window', 'popover', 'titlebar', 'header']
 const GLASS_SCOPES = ['window', 'sidebar']
-const FROST_LABELS = { 'under-window': '深邃', popover: '柔和', titlebar: '明亮', header: '透亮' }
-const SCOPE_LABELS = { window: '整个窗口', sidebar: '仅侧边栏' }
+const FROST_LABELS = { 'under-window': 'translucency.materials.under-window', popover: 'translucency.materials.popover', titlebar: 'translucency.materials.titlebar', header: 'translucency.materials.header' }
+const SCOPE_LABELS = { window: 'translucency.scopes.window', sidebar: 'translucency.scopes.sidebar' }
 const SLIDER_STYLE = {
   height: '4px',
   WebkitAppearance: 'none',
@@ -106,8 +217,8 @@ const SLIDER_STYLE = {
 }
 
 const INTRO_OPTIONS = [
-  { id: 'native', label: '原生文案' },
-  { id: 'custom', label: '自定义' }
+  { id: 'native', labelKey: 'intro.native' },
+  { id: 'custom', labelKey: 'intro.custom' }
 ]
 
 let ctxRef = null
@@ -482,9 +593,9 @@ function subscribeNativeZoom(cb) {
 const MODE_GLOBAL_KEY = 'hermes-desktop-mode-v1'
 const MODE_RECORD_KEY = 'hermes-desktop-profile-modes-v1'
 const THEME_MODES = [
-  { id: 'light', label: '明亮' },
-  { id: 'dark', label: '暗色' },
-  { id: 'system', label: '系统' }
+  { id: 'light', labelKey: 'theme.modeLight' },
+  { id: 'dark', labelKey: 'theme.modeDark' },
+  { id: 'system', labelKey: 'theme.modeSystem' }
 ]
 
 function readThemeMode() {
@@ -730,6 +841,9 @@ function writeThemeSkin(skin) {
 
 // ── 面板 ──────────────────────────────────────────────────────────
 function AppearancePanel() {
+  // 响应式翻译器：locale 切换即重渲染（模块级 OPTIONS 的 labelKey 也在此统一取词）
+  const t = usePluginI18n(ID)
+  const label = (o) => (o.labelKey ? t(o.labelKey) : o.label)
   const [paper, setPaper] = useState(() => ctxRef.storage.get(PAPER_KEY, true))
   const [darkRecipe, setDarkRecipeState] = useState(() => {
     const v = ctxRef.storage.get(DARK_RECIPE_KEY, 'light')
@@ -1011,9 +1125,9 @@ function AppearancePanel() {
               'flex size-7 shrink-0 items-center justify-center rounded-md border border-(--ui-stroke-secondary) bg-(--ui-bg-elevated)',
             children: jsx(icons.Palette, { className: 'size-3.5 text-(--ui-text-secondary)' })
           }),
-          jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight font-medium', children: '外观' }),
+          jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight font-medium', children: t('theme.title') }),
           jsx(SegmentedControl, {
-            options: THEME_MODES,
+            options: THEME_MODES.map((m) => ({ ...m, label: label(m) })),
             value: themeMode,
             onChange: setThemeMode,
             className: 'shrink-0 scale-90'
@@ -1031,7 +1145,7 @@ function AppearancePanel() {
                 className: 'flex size-6 shrink-0 items-center justify-center',
                 children: jsx(icons.Palette, { className: 'size-3.5 text-(--ui-text-secondary)' })
               }),
-              jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: '主题' })
+              jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: t('theme.gridTitle') })
             ]
           }),
           jsx(
@@ -1070,10 +1184,10 @@ function AppearancePanel() {
           jsxs('div', {
             className: 'min-w-0 flex-1',
             children: [
-              jsx('div', { className: 'text-[0.75rem] leading-tight', children: '字体' }),
+              jsx('div', { className: 'text-[0.75rem] leading-tight', children: t('font.title') }),
               jsx('div', {
                 className: 'mt-0.5 text-[0.6875rem] leading-tight text-(--ui-text-tertiary)',
-                children: '界面字体 · 霞鹜文楷'
+                children: t('font.desc')
               })
             ]
           }),
@@ -1100,10 +1214,10 @@ function AppearancePanel() {
               jsxs('div', {
                 className: 'min-w-0 flex-1',
                 children: [
-                  jsx('div', { className: 'text-[0.75rem] leading-tight', children: '纸纹' }),
+                  jsx('div', { className: 'text-[0.75rem] leading-tight', children: t('paper.title') }),
                   jsx('div', {
                     className: 'mt-0.5 text-[0.6875rem] leading-tight text-(--ui-text-tertiary)',
-                    children: '宣纸噪点层 · 随明暗自动切换'
+                    children: t('paper.desc')
                   })
                 ]
               }),
@@ -1122,10 +1236,10 @@ function AppearancePanel() {
             children: [
               jsx('span', {
                 className: 'shrink-0 text-[0.625rem] text-(--ui-text-quaternary)',
-                children: '明亮配方'
+                children: t('paper.recipeLight')
               }),
               jsx(SegmentedControl, {
-                options: Object.entries(LIGHT_RECIPES).map(([id, r]) => ({ id, label: r.label })),
+                options: Object.entries(LIGHT_RECIPES).map(([id, r]) => ({ id, label: t(r.labelKey) })),
                 value: lightRecipe,
                 onChange: setLightRecipe,
                 className: 'min-w-0 flex-1'
@@ -1137,10 +1251,10 @@ function AppearancePanel() {
             children: [
               jsx('span', {
                 className: 'shrink-0 text-[0.625rem] text-(--ui-text-quaternary)',
-                children: '暗色配方'
+                children: t('paper.recipeDark')
               }),
               jsx(SegmentedControl, {
-                options: Object.entries(DARK_RECIPES).map(([id, r]) => ({ id, label: r.label })),
+                options: Object.entries(DARK_RECIPES).map(([id, r]) => ({ id, label: t(r.labelKey) })),
                 value: darkRecipe,
                 onChange: setDarkRecipe,
                 className: 'min-w-0 flex-1'
@@ -1161,15 +1275,15 @@ function AppearancePanel() {
           jsxs('div', {
             className: 'min-w-0 flex-1',
             children: [
-              jsx('div', { className: 'text-[0.75rem] leading-tight', children: '标签栏' }),
+              jsx('div', { className: 'text-[0.75rem] leading-tight', children: t('tabstrip.title') }),
               jsx('div', {
                 className: 'mt-0.5 text-[0.6875rem] leading-tight text-(--ui-text-tertiary)',
-                children: '切换/新建会话后生效'
+                children: t('tabstrip.desc')
               })
             ]
           }),
           jsx(SegmentedControl, {
-            options: TABSTRIP_OPTIONS,
+            options: TABSTRIP_OPTIONS.map((o) => ({ ...o, label: label(o) })),
             value: tabStrip,
             onChange: setTabStrip,
             className: 'shrink-0'
@@ -1185,9 +1299,9 @@ function AppearancePanel() {
             className: 'flex size-6 shrink-0 items-center justify-center',
             children: jsx(icons.FileText, { className: 'size-3.5 text-(--ui-text-secondary)' })
           }),
-          jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: '会话列表密度' }),
+          jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: t('density.title') }),
           jsx(SegmentedControl, {
-            options: DENSITY_OPTIONS,
+            options: DENSITY_OPTIONS.map((o) => ({ ...o, label: label(o) })),
             value: density,
             onChange: setDensity,
             className: 'shrink-0'
@@ -1206,17 +1320,17 @@ function AppearancePanel() {
           jsxs('div', {
             className: 'min-w-0 flex-1',
             children: [
-              jsx('div', { className: 'text-[0.75rem] leading-tight', children: '聊天背景' }),
+              jsx('div', { className: 'text-[0.75rem] leading-tight', children: t('backdrop.title') }),
               jsx('div', {
                 className: 'mt-0.5 text-[0.6875rem] leading-tight text-(--ui-text-tertiary)',
-                children: '对话后方那张淡淡的雕像图片'
+                children: t('backdrop.desc')
               })
             ]
           }),
           jsx(SegmentedControl, {
             options: [
-              { id: 'off', label: '关' },
-              { id: 'on', label: '开' }
+              { id: 'off', label: t('backdrop.off') },
+              { id: 'on', label: t('backdrop.on') }
             ],
             value: backdrop ? 'on' : 'off',
             onChange: (id) => toggleBackdrop(id === 'on'),
@@ -1236,11 +1350,11 @@ function AppearancePanel() {
                 className: 'flex size-6 shrink-0 items-center justify-center',
                 children: jsx(icons.Eye, { className: 'size-3.5 text-(--ui-text-secondary)' })
               }),
-              jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: '窗口透明' }),
+              jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: t('translucency.title') }),
               jsx(SegmentedControl, {
                 options: [
-                  { id: 'clear', label: '透明' },
-                  { id: 'glass', label: '玻璃' }
+                  { id: 'clear', label: t('translucency.clear') },
+                  { id: 'glass', label: t('translucency.glass') }
                 ],
                 value: translucencyMode,
                 onChange: changeTranslucencyMode,
@@ -1253,7 +1367,7 @@ function AppearancePanel() {
             children: [
               jsx('span', {
                 className: 'shrink-0 text-[0.625rem] text-(--ui-text-quaternary)',
-                children: translucencyMode === 'glass' ? '色调' : '强度'
+                children: translucencyMode === 'glass' ? t('translucency.tint') : t('translucency.intensityLabel'),
               }),
               jsx('input', {
                 type: 'range',
@@ -1282,7 +1396,7 @@ function AppearancePanel() {
                   children: [
                     jsx('span', {
                       className: 'shrink-0 text-[0.625rem] text-(--ui-text-quaternary)',
-                      children: '淡出'
+                      children: t('translucency.fade')
                     }),
                     jsx('input', {
                       type: 'range',
@@ -1307,10 +1421,10 @@ function AppearancePanel() {
                   children: [
                     jsx('span', {
                       className: 'shrink-0 text-[0.625rem] text-(--ui-text-quaternary)',
-                      children: '磨砂质感'
+                      children: t('translucency.materialTitle')
                     }),
                     jsx(SegmentedControl, {
-                      options: GLASS_MATERIALS.map((m3) => ({ id: m3, label: FROST_LABELS[m3] })),
+                      options: GLASS_MATERIALS.map((m3) => ({ id: m3, label: t(FROST_LABELS[m3]) })),
                       value: glassMaterial,
                       onChange: setGlassMaterial,
                       className: 'min-w-0 flex-1'
@@ -1322,10 +1436,10 @@ function AppearancePanel() {
                   children: [
                     jsx('span', {
                       className: 'shrink-0 text-[0.625rem] text-(--ui-text-quaternary)',
-                      children: '应用范围'
+                      children: t('translucency.scopeTitle')
                     }),
                     jsx(SegmentedControl, {
-                      options: GLASS_SCOPES.map((s3) => ({ id: s3, label: SCOPE_LABELS[s3] })),
+                      options: GLASS_SCOPES.map((s3) => ({ id: s3, label: t(SCOPE_LABELS[s3]) })),
                       value: glassScope,
                       onChange: setGlassScope,
                       className: 'min-w-0 flex-1'
@@ -1351,17 +1465,17 @@ function AppearancePanel() {
               jsxs('div', {
                 className: 'min-w-0 flex-1',
                 children: [
-                  jsx('div', { className: 'text-[0.75rem] leading-tight', children: '开场标识' }),
+                  jsx('div', { className: 'text-[0.75rem] leading-tight', children: t('intro.title') }),
                   jsx('div', {
                     className: 'mt-0.5 text-[0.6875rem] leading-tight text-(--ui-text-tertiary)',
-                    children: '新建会话的字标与提示语'
+                    children: t('intro.desc')
                   })
                 ]
               }),
               jsx(SegmentedControl, {
                 options: [
-                  { id: 'off', label: '关' },
-                  { id: 'on', label: '开' }
+                  { id: 'off', label: t('intro.off') },
+                  { id: 'on', label: t('intro.on') }
                 ],
                 value: introOn ? 'on' : 'off',
                 onChange: (id2) => toggleIntro(id2 === 'on'),
@@ -1374,7 +1488,7 @@ function AppearancePanel() {
               className: 'flex flex-col gap-1.5 px-0.5',
               children: [
                 jsx(SegmentedControl, {
-                  options: INTRO_OPTIONS,
+                  options: INTRO_OPTIONS.map((o) => ({ ...o, label: label(o) })),
                   value: introMode,
                   onChange: setIntroMode,
                   className: 'w-full'
@@ -1386,14 +1500,14 @@ function AppearancePanel() {
                       jsx(Input, {
                         value: introHeadline,
                         onChange: (e) => setIntroHeadline(e.target.value),
-                        placeholder: '字标，如 BINSHAO',
+                        placeholder: t('intro.headlinePlaceholder'),
                         className: 'h-7 text-[0.6875rem]',
                         'aria-label': '自定义字标'
                       }),
                       jsx(Textarea, {
                         value: introTagline,
                         onChange: (e) => setIntroTagline(e.target.value),
-                        placeholder: '提示语（留空跟随原生随机文案）',
+                        placeholder: t('intro.taglinePlaceholder'),
                         rows: 2,
                         className: 'text-[0.6875rem]',
                         'aria-label': '自定义提示语'
@@ -1427,10 +1541,10 @@ function AppearancePanel() {
               jsxs('div', {
                 className: 'min-w-0 flex-1',
                 children: [
-                  jsx('div', { className: 'text-[0.75rem] leading-tight', children: '界面缩放' }),
+                  jsx('div', { className: 'text-[0.75rem] leading-tight', children: t('zoom.title') }),
                   jsx('div', {
                     className: 'mt-0.5 text-[0.6875rem] leading-tight text-(--ui-text-tertiary)',
-                    children: '原生缩放 · 与设置/View菜单同步'
+                    children: t('zoom.desc')
                   })
                 ]
               })
@@ -1451,12 +1565,12 @@ function AppearancePanel() {
         children: [
           jsx('div', {
             className: 'min-w-0 flex-1 text-[0.625rem] text-(--ui-text-quaternary)',
-            children: '修改即时生效 · 重启后保留'
+            children: t('footer.tip')
           }),
           jsx(SegmentedControl, {
             options: [
-              { id: 'single', label: '单栏' },
-              { id: 'dual', label: '双栏' }
+              { id: 'single', label: t('layout.single') },
+              { id: 'dual', label: t('layout.dual') }
             ],
             value: dualCol ? 'dual' : 'single',
             onChange: (id) => setDualCol(id === 'dual'),
@@ -1507,6 +1621,11 @@ export default {
     try {
       ctxRef = ctx
 
+      // 插件级 i18n：注册 locale bundles，跟随 app 语言设置；卸载时随 disposer 摘除
+      const disposeI18n = ctx.i18n.register(LOCALES)
+      // 非响应式翻译器（register 时求值一次；语言切换后需重启更新状态栏文字）
+      const ti18n = ctx.i18n.t
+
       // 按持久化状态初始化（默认开启，与原插件行为一致）
       if (ctx.storage.get(PAPER_KEY, true)) injectPaper()
       if (ctx.storage.get(FONT_KEY, true)) applyFont()
@@ -1538,12 +1657,13 @@ export default {
         if (typeof zoomUnsubscribeNative === 'function') zoomUnsubscribeNative()
         zoomUnsubscribeNative = null
         zoomSubscribers.clear()
+        disposeI18n()
         ctxRef = null
       })
 
       if (!ctx.storage.get(WELCOME_KEY, false)) {
         ctx.storage.set(WELCOME_KEY, true)
-        host.notify({ kind: 'info', message: '外观 Hub 已就绪 — 纸纹、字体、原生缩放在状态栏「外观」开关' })
+        host.notify({ kind: 'info', message: ti18n('notify.ready') })
       }
 
       // 标准状态栏条目：variant:'menu' + menuContent = 核心 DropdownMenu 弹窗，
@@ -1556,17 +1676,17 @@ export default {
         data: {
           id: 'hub',                                    // 必填：右键显隐按此 id 持久化，缺了会存成 null 被过滤
           variant: 'menu',                              // → 核心 DropdownMenu
-          label: '外观',
+          label: ti18n('statusbar.label'),
           icon: jsx(icons.Palette, { className: 'size-3.5' }),
-          title: '外观设置',
+          title: ti18n('statusbar.title'),
           menuAlign: 'end',
           menuContent: jsx(AppearancePanel, {}),
           menuClassName: 'w-auto border-(--ui-stroke-secondary) p-0',
-          toggleLabel: '外观设置'
+          toggleLabel: ti18n('statusbar.toggleLabel')
         }
       })
     } catch (e) {
-      host.notify({ kind: 'error', message: '外观 Hub 注入失败: ' + (e && e.message) })
+      host.notify({ kind: 'error', message: ti18n('notify.failed') + (e && e.message) })
     }
   }
 }
