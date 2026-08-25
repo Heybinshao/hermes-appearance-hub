@@ -69,10 +69,10 @@ const DARK_RECIPES = {
   ground: { label: '贴地', baseFreq: 0.9, octaves: 3, gain: 2.2, offset: -0.55, blur: 0.6, opacity: 0.2 }
 }
 const LIGHT_RECIPES = {
-  light: { label: '极轻', baseFreq: 0.72, octaves: 4, gain: null, offset: null, blur: null, opacity: 0.18 },
-  subtle: { label: '微调', baseFreq: 0.72, octaves: 4, gain: 1.3, offset: 0.35, blur: null, opacity: 0.3 },
+  light: { label: '极轻', baseFreq: 0.72, octaves: 4, gain: 1.3, offset: 0.3, blur: null, opacity: 0.18 },
+  subtle: { label: '微调', baseFreq: 0.72, octaves: 4, gain: 1.15, offset: 0.25, blur: null, opacity: 0.28 },
   classic: { label: '经典', baseFreq: 0.72, octaves: 4, gain: null, offset: null, blur: null, opacity: 0.3 },
-  top: { label: '贴顶', baseFreq: 0.72, octaves: 4, gain: 2.0, offset: 0.55, blur: null, opacity: 0.3 }
+  top: { label: '贴顶', baseFreq: 0.72, octaves: 4, gain: 1.2, offset: 0.05, blur: null, opacity: 0.35 }
 }
 const DARK_RECIPE_KEY = 'paper.darkRecipe'
 const LIGHT_RECIPE_KEY = 'paper.lightRecipe'
