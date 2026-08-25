@@ -567,8 +567,12 @@ async function loadOfficialStores() {
             foundBoolAtoms.push(v)
           }
         }
-        // 统一键验证：找出写 BACKDROP_KEY 的那个（即 $backdrop），探测后全部还原。
-        // 还原所有被翻转的 atom（含误触的命令面板开关等），确保无副作用残留。
+        // 统一键验证：找出写 BACKDROP_KEY 的 boolean atom（即 $backdrop），
+        // 探测后全部还原。与密度同款机制。
+        // 探测期间临时隐藏开场标识 DOM 防止 intro-splash atom 被翻转时的视觉闪烁
+        const introEl = document.querySelector('[data-slot="aui_intro"]')
+        const prevVis = introEl ? introEl.style.visibility : ''
+        if (introEl) introEl.style.visibility = 'hidden'
         if (foundBoolAtoms && foundBoolAtoms.length >= 2) {
           const snapshot = foundBoolAtoms.map(a => a.get())
           const beforeBd = localStorage.getItem(BACKDROP_KEY)
@@ -584,6 +588,8 @@ async function loadOfficialStores() {
             console.info('[appearance-hub] ✅ backdrop atom 已识别')
           }
         }
+        // 恢复开场标识可见性（探测时临时隐藏防闪烁）
+        if (introEl) introEl.style.visibility = prevVis
       } catch {}
     }
     // store chunk（tabStrip）
@@ -870,9 +876,11 @@ function AppearancePanel() {
 
   const toggleBackdrop = (on) => {
     setBackdropState(on)
-    // 落盘即时；设置页开着时程序化点击官方开关实时生效
-    writeBackdrop(on)
-    syncRowByTitle('聊天背景', on ? '开' : '关')
+    loadOfficialStores().then((s) => {
+      // 官方 atom 实时切换界面（Backdrop.tsx 直接订阅此 atom）
+      if (s?.backdrop) s.backdrop.set(on)
+      else writeBackdrop(on)
+    })
     haptic('tap')
   }
 
@@ -1461,6 +1469,9 @@ export default {
       // 挂模块级常驻监听：与弹窗开关无关，保证 Settings / View 菜单 / Cmd± 改缩放时
       // 反向同步（哪怕 hub 弹窗此刻没开，下次打开也已是最新值）。
       startNativeZoomWatch()
+      // 预热官方 store 识别（后台异步，启动时闪烁不可见）：
+      // 避免用户首次点聊天背景时键验证法探测导致开场标识闪动
+      loadOfficialStores().catch(() => {})
 
       // 卸载/重载时清理注入，不留残留
       ctx.onDispose(() => {
