@@ -1465,7 +1465,6 @@ function AppearancePanel() {
         ]
       })
     ]
-  ]
   // 区块索引：0=标题 1=主题 2=字体 3=纸纹 4=标签栏 5=密度 6=聊天背景 7=窗口透明 8=开场标识 9=缩放 10=底部提示+布局开关
   const [secTitle, secTheme, secFont, secPaper, secTabStrip, secDensity, secBackdrop,
          secTranslucency, secIntro, secZoom, secFooter] = secChildren
