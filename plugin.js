@@ -216,6 +216,22 @@ const SLIDER_STYLE = {
   accentColor: 'var(--dt-primary)'
 }
 
+// 嵌套行：左标签定宽(内联样式，宿主CSS不编译插件的tailwind类) + 右控件吃满。
+// 必须定义在模块顶层——放组件函数体内会每帧产生新函数引用，React 视为不同组件类型
+// 而卸载重挂子树，拖动滑杆的原生手势会被打断（表现为拖不动）。
+const ControlRow = ({ label, children }) =>
+  jsxs('div', {
+    className: 'flex items-center gap-2',
+    children: [
+      jsx('span', {
+        style: { width: '52px', flexShrink: 0 },
+        className: 'text-[0.625rem] leading-tight text-(--ui-text-quaternary)',
+        children: label
+      }),
+      jsx('div', { className: 'min-w-0 flex-1', children })
+    ]
+  })
+
 const INTRO_OPTIONS = [
   { id: 'native', labelKey: 'intro.native' },
   { id: 'custom', labelKey: 'intro.custom' }
@@ -1125,18 +1141,6 @@ function AppearancePanel() {
   // 1'. 四角同一基线：标题行/底部行也用 px-2，禁 px-1——全面板只有一条左右基线
   // 5'. 布局关键值禁依赖宿主编译的 tailwind 类（pr-3 曾未编译致双栏不对称、w-[52px] 曾未编译
   //     致 en 控件起点参差）；定宽/定距一律内联 style={{...}}
-  const ControlRow = ({ label, children }) =>
-    jsxs('div', {
-      className: 'flex items-center gap-2',
-      children: [
-        jsx('span', {
-          style: { width: '52px', flexShrink: 0 },
-          className: 'text-[0.625rem] leading-tight text-(--ui-text-quaternary)',
-          children: label
-        }),
-        jsx('div', { className: 'min-w-0 flex-1', children })
-      ]
-    })
   const secChildren = [
       // 标题（右上角 = 主题三档切换：明亮/暗色/系统）
       jsxs('div', {
