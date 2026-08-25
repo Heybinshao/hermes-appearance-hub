@@ -549,7 +549,7 @@ async function loadOfficialStores() {
     const mainSrc = await (await fetch(mainUrl)).text()
     // density chunk
     const m1 = mainSrc.match(/([\w-]*session-list-density-[A-Za-z0-9_-]+\.js)/)
-    if (m1 && !officialStores.density && !officialStores._densityMiss) {
+    if (m1 && !officialStores.density) {
       try {
         const mod = await import(/* @vite-ignore */ new URL('./' + m1[1], base).href)
         for (const k of Object.keys(mod)) {
