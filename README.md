@@ -106,13 +106,14 @@ rm -rf ~/.hermes/desktop-plugins/hermes-appearance-hub
 - **密度/标签栏/聊天背景**：直写官方 localStorage 键，并通过动态 import 官方打包 chunk 拿到 nanostores atom 实时驱动界面（运行时按行为特征识别 atom，无硬编码混淆名）；atom 未识别时退回 localStorage 直写
 - **窗口透明**：写 TranslucencyBook JSON 后直接调用 `window.hermesDesktop.setTranslucency()` IPC，实时驱动原生窗口效果
 
-## 作者
+## 关于作者
 
-**彬少（Binshao）** — 设计师 turned AI 工具折腾者。
+**彬少** —— 一个什么都折腾一下的人：装系统 · 玩AI · 搭知识库 · 做设计。这个插件是我自己在用的桌面端外观整合，分享出来给同样在折腾 Hermes 的朋友。
 
-- GitHub: [Heybinshao](https://github.com/Heybinshao)
-- 公众号：宝藏彬少
+微信公众号 **「宝藏彬少」**：折腾，是为了更好用。欢迎关注交流。
 
-## License
+---
+
+## 许可证
 
 MIT
