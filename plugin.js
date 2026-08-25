@@ -1117,6 +1117,11 @@ function AppearancePanel() {
   }, [introHeadline, introTagline, introMode])
 
   // ── 面板结构（双栏改造）：原单列 children 原地转为区块列表，零转写、渲染不变 ──
+  // ── 对齐总纲（设计宪法）──
+  // 1. 右缘：全面板唯一基线 = 区块 px-2 的 8px；任何控件不得用 marginRight/内层 px 偏移离开此线
+  // 2. 左缘两级：一级 = px-2 的 8px（图标/标题）；二级 = 42px（嵌套行标签/展开项，用 pl-[34px] 或图标列自然缩进）
+  // 3. 控件左缘三级：嵌套行内 = 二级 + 标签定宽 w-[52px] + gap-2 → 控件左端全部同线（配方/滑杆/磨砂/范围）
+  // 4. 同类同宽：滑杆百分比数字一律 32px 右对齐；开关贴右缘零偏移
   const secChildren = [
       // 标题（右上角 = 主题三档切换：明亮/暗色/系统）
       jsxs('div', {
@@ -1429,7 +1434,7 @@ function AppearancePanel() {
                   className: 'flex items-center gap-2',
                   children: [
                     jsx('span', {
-                      className: 'shrink-0 text-[0.625rem] text-(--ui-text-quaternary)',
+                      className: 'w-[52px] shrink-0 text-[0.625rem] leading-tight text-(--ui-text-quaternary)',
                       children: t('translucency.materialTitle')
                     }),
                     jsx(SegmentedControl, {
@@ -1444,7 +1449,7 @@ function AppearancePanel() {
                   className: 'flex items-center gap-2',
                   children: [
                     jsx('span', {
-                      className: 'shrink-0 text-[0.625rem] text-(--ui-text-quaternary)',
+                      className: 'w-[52px] shrink-0 text-[0.625rem] leading-tight text-(--ui-text-quaternary)',
                       children: t('translucency.scopeTitle')
                     }),
                     jsx(SegmentedControl, {
@@ -1504,7 +1509,8 @@ function AppearancePanel() {
                 }),
                 introMode === 'custom' &&
                   jsxs('div', {
-                    className: 'flex flex-col gap-1.5',
+                    // 二级左缘对齐：区块 px-2(8px) + 34px = 42px，与嵌套行标签同线
+                    className: 'flex flex-col gap-1.5 pl-[34px]',
                     children: [
                       jsx(Input, {
                         value: introHeadline,
