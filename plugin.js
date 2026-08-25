@@ -110,7 +110,7 @@ export const LOCALES = {
       recipeLightSet: { light: '極輕', subtle: '微調', classic: '經典', top: '貼頂' },
       recipeDarkSet: { light: '極輕', subtle: '微調', classic: '經典', ground: '貼地' }
     },
-    tabstrip: { title: '分頁列', desc: '切換/新建會話後生效', auto: '自動', always: '一律', never: '永不' },
+    tabstrip: { title: '分頁列', desc: '切換/新增工作階段後生效', auto: '自動', always: '一律', never: '永不' },
     density: { title: '工作階段列表密度', compact: '緊湊', comfortable: '舒適', detailed: '詳細' },
     backdrop: { title: '聊天背景', desc: '對話後方那張淡淡的雕像圖片', off: '關閉', on: '開啟' },
     translucency: {
@@ -124,12 +124,12 @@ export const LOCALES = {
     intro: {
       title: '開場標識', desc: '空白對話中顯示的字標和提示語', off: '關閉', on: '開啟',
       native: '原生文案', custom: '自訂',
-      headlinePlaceholder: '字標，如 BINSHAO', taglinePlaceholder: '提示語（留空跟隨原生隨機文案）'
+      headlinePlaceholder: '字標，例如 BINSHAO', taglinePlaceholder: '提示語（留空跟隨原生隨機文案）'
     },
-    zoom: { title: '介面縮放', desc: '原生縮放 · 與設定/View選單同步' },
+    zoom: { title: '介面縮放', desc: '原生縮放 · 與設定/檢視選單同步' },
     layout: { single: '單欄', dual: '雙欄' },
     footer: { tip: '修改即時生效 · 重啟後保留' },
-    notify: { ready: '外觀 Hub 已就緒 — 紙紋、字體、原生縮放在狀態列「外觀」開關', failed: '外觀 Hub 注入失敗: ' }
+    notify: { ready: '外觀 Hub 已就緒 — 紙紋、字型、原生縮放在狀態列「外觀」開關', failed: '外觀 Hub 注入失敗: ' }
   }
 }
 
