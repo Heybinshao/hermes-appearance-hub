@@ -50,17 +50,25 @@ cp -r hermes-appearance-hub ~/.hermes/desktop-plugins/
 
 ![开场标识自定义](assets/screenshot-intro-custom.png)
 
-**浅色模式效果对比** —— 左：未启用（系统字体、无纸纹）；右：启用后（霞鹜文楷 + 宣纸纸纹）：
+**浅色模式效果对比** —— 上：未启用（系统字体、无纸纹）；下：启用后（霞鹜文楷 + 宣纸纸纹）：
 
-| 未启用 | 启用纸纹 + 字体 |
-|---|---|
-| ![浅色默认](assets/screenshot-light-before.png) | ![浅色启用](assets/screenshot-light-after.png) |
+| 未启用 |
+|---|
+| ![浅色默认](assets/screenshot-light-before.png) |
 
-**暗色模式效果对比** —— 左：未启用（系统字体、无纸纹）；右：启用后（霞鹜文楷 + 宣纸纸纹）：
+| 启用纸纹 + 字体 |
+|---|
+| ![浅色启用](assets/screenshot-light-after.png) |
 
-| 未启用 | 启用纸纹 + 字体 |
-|---|---|
-| ![暗色默认](assets/screenshot-dark-before.png) | ![暗色启用](assets/screenshot-dark-after.png) |
+**暗色模式效果对比** —— 上：未启用（系统字体、无纸纹）；下：启用后（霞鹜文楷 + 宣纸纸纹）：
+
+| 未启用 |
+|---|
+| ![暗色默认](assets/screenshot-dark-before.png) |
+
+| 启用纸纹 + 字体 |
+|---|
+| ![暗色启用](assets/screenshot-dark-after.png) |
 
 ## 使用
 
@@ -97,6 +105,13 @@ rm -rf ~/.hermes/desktop-plugins/hermes-appearance-hub
 - **开场标识**：定位原生开关的 localStorage 键（`hermes.desktop.intro-splash.v1`）做落盘同步；自定义文字用 `MutationObserver` 直接替换 `[data-slot="aui_intro"]` 内 fit-text 叶子 span 的文本——不碰应用代码，React 重渲染写回也会被重新替换；禁用时移除注入并还原原文案
 - **密度/标签栏/聊天背景**：直写官方 localStorage 键，并通过动态 import 官方打包 chunk 拿到 nanostores atom 实时驱动界面（运行时按行为特征识别 atom，无硬编码混淆名）；atom 未识别时退回 localStorage 直写
 - **窗口透明**：写 TranslucencyBook JSON 后直接调用 `window.hermesDesktop.setTranslucency()` IPC，实时驱动原生窗口效果
+
+## 作者
+
+**彬少（Binshao）** — 设计师 turned AI 工具折腾者。
+
+- GitHub: [Heybinshao](https://github.com/Heybinshao)
+- 公众号：宝藏彬少
 
 ## License
 
