@@ -1286,7 +1286,7 @@ function AppearancePanel() {
             options: TABSTRIP_OPTIONS.map((o) => ({ ...o, label: label(o) })),
             value: tabStrip,
             onChange: setTabStrip,
-            className: 'min-w-0 flex-1'
+            className: 'ml-auto w-auto shrink-0 whitespace-nowrap px-1'
           })
         ]
       }),
@@ -1304,7 +1304,7 @@ function AppearancePanel() {
             options: DENSITY_OPTIONS.map((o) => ({ ...o, label: label(o) })),
             value: density,
             onChange: setDensity,
-            className: 'min-w-0 flex-1'
+            className: 'ml-auto w-auto shrink-0 whitespace-nowrap px-1'
           })
         ]
       }),
@@ -1334,7 +1334,7 @@ function AppearancePanel() {
             ],
             value: backdrop ? 'on' : 'off',
             onChange: (id) => toggleBackdrop(id === 'on'),
-            className: 'min-w-0 flex-1'
+            className: 'ml-auto w-auto shrink-0 whitespace-nowrap px-1'
           })
         ]
       }),
@@ -1479,7 +1479,7 @@ function AppearancePanel() {
                 ],
                 value: introOn ? 'on' : 'off',
                 onChange: (id2) => toggleIntro(id2 === 'on'),
-                className: 'min-w-0 flex-1'
+                className: 'ml-auto w-auto shrink-0 whitespace-nowrap px-1'
               })
             ]
           }),
