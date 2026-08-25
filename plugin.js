@@ -1286,7 +1286,7 @@ function AppearancePanel() {
             options: TABSTRIP_OPTIONS.map((o) => ({ ...o, label: label(o) })),
             value: tabStrip,
             onChange: setTabStrip,
-            className: 'ml-auto w-[150px]'
+            className: 'ml-auto mr-0.5 w-[150px]'
           })
         ]
       }),
@@ -1304,7 +1304,7 @@ function AppearancePanel() {
             options: DENSITY_OPTIONS.map((o) => ({ ...o, label: label(o) })),
             value: density,
             onChange: setDensity,
-            className: 'ml-auto w-[150px]'
+            className: 'ml-auto mr-0.5 w-[150px]'
           })
         ]
       }),
@@ -1334,7 +1334,7 @@ function AppearancePanel() {
             ],
             value: backdrop ? 'on' : 'off',
             onChange: (id) => toggleBackdrop(id === 'on'),
-            className: 'ml-auto w-[150px]'
+            className: 'ml-auto mr-0.5 w-[150px]'
           })
         ]
       }),
@@ -1358,7 +1358,7 @@ function AppearancePanel() {
                 ],
                 value: translucencyMode,
                 onChange: changeTranslucencyMode,
-                className: 'shrink-0'
+                className: 'mr-0.5 shrink-0'
               })
             ]
           }),
@@ -1479,7 +1479,7 @@ function AppearancePanel() {
                 ],
                 value: introOn ? 'on' : 'off',
                 onChange: (id2) => toggleIntro(id2 === 'on'),
-                className: 'ml-auto w-[150px]'
+                className: 'ml-auto mr-0.5 w-[150px]'
               })
             ]
           }),
