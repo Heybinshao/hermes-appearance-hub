@@ -560,22 +560,8 @@ async function loadOfficialStores() {
             if (!officialStores.density) officialStores.density = v
             continue
           }
-          // backdrop atom：boolean 值，用键验证法区分 intro-splash
-          if (typeof cur === 'boolean') {
-            console.info('[appearance-hub] 发现 boolean atom, 当前值:', cur)
-            try {
-              const beforeBd = localStorage.getItem(BACKDROP_KEY)
-              localStorage.setItem(BACKDROP_KEY, String(!cur))
-              const afterBd = localStorage.getItem(BACKDROP_KEY)
-              if (afterBd !== beforeBd && afterBd === String(!cur)) {
-                officialStores.backdrop = v
-                console.info('[appearance-hub] ✅ 识别为 backdrop atom')
-              } else {
-                console.info('[appearance-hub] 非 backdrop（键未变化）')
-              }
-              localStorage.setItem(BACKDROP_KEY, String(beforeBd ?? String(cur)))
-            } catch (err) { console.warn('[appearance-hub] 键验证异常:', err?.message) }
-          }
+          // backdrop atom：无法与其他 boolean atom（如命令面板开关）安全区分，
+          // 键验证法会误触发副作用（实测误开了命令面板）。改由设置页点击或落盘兜底。
         }
       } catch {}
     }
@@ -863,14 +849,9 @@ function AppearancePanel() {
 
   const toggleBackdrop = (on) => {
     setBackdropState(on)
-    writeBackdrop(on)  // 先落盘保证状态正确
-    loadOfficialStores().then((s) => {
-      // 官方 atom 实时切换界面（若识别成功）
-      if (s?.backdrop) {
-        console.info('[appearance-hub] backdrop atom.set:', on, '→ get():', s.backdrop.get())
-        s.backdrop.set(on)
-      }
-    })
+    // 落盘即时；界面随下次布局变化生效。设置页开着时 syncRowByTitle 可实时点击
+    writeBackdrop(on)
+    syncRowByTitle('聊天背景', on ? '开' : '关')
     haptic('tap')
   }
 
