@@ -1682,6 +1682,7 @@ export default {
 
       // 卸载/重载时清理注入，不留残留
       ctx.onDispose(() => {
+        langObserver.disconnect()
         removePaper()
         removeFont()
         resetIntroOnDispose()
@@ -1700,7 +1701,14 @@ export default {
       // 标准状态栏条目：variant:'menu' + menuContent = 核心 DropdownMenu 弹窗，
       // 与 gateway / 命令中心等核心工具同一渲染路径；toggleLabel 使其出现在
       // 状态栏右键菜单（可勾选显隐）。
-      ctx.register({
+      //
+      // 冷启动 locale 竞态修复：register 在模块加载时同步执行，而 app 的
+      // display.language 走异步 IPC（I18nProvider 初始恒为 en），此刻求值的
+      // label/title/toggleLabel 会卡在英文。declarative data 不响应 locale 变化，
+      // 故挂 MutationObserver 监听 <html lang>（I18nProvider 每次 setLocale 都会
+      // 同步写它）：lang 变化即用同 id 重注册，registry 按 id 原子替换 + invalidate，
+      // 按钮文字随之刷新。弹窗内容走 React hook 本就响应式，不受此影响。
+      const statusbarData = () => ({
         id: 'hub',
         area: 'statusBar.right',
         order: 100,
@@ -1716,6 +1724,16 @@ export default {
           toggleLabel: ti18n('statusbar.toggleLabel')
         }
       })
+      ctx.register(statusbarData())
+
+      let lastStatusbarLang = document.documentElement.lang
+      const langObserver = new MutationObserver(() => {
+        const lang = document.documentElement.lang
+        if (!lang || lang === lastStatusbarLang) return
+        lastStatusbarLang = lang
+        ctx.register(statusbarData())
+      })
+      langObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] })
     } catch (e) {
       host.notify({ kind: 'error', message: ti18n('notify.failed') + (e && e.message) })
     }
