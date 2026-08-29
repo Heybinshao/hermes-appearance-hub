@@ -769,12 +769,22 @@ function readTranslucencyBook() {
   return { mode: 'clear', base: {}, light: {}, dark: {} }
 }
 
+// 明暗空槽镜像读取：当前模式槽没显式设置的字段，借用另一槽的显式值，
+// 再回落 base、最后出厂默认。只影响读取/推送，不写回落盘数据（不污染官方设置页账本）。
+// 解决「暗色调好参数、切回明亮却回落出厂默认（fade=1≈不透明）」的跟随体感问题。
+function resolveBookField(book, field, dark) {
+  const slot = book[dark ? 'dark' : 'light'] || {}
+  const other = book[dark ? 'light' : 'dark'] || {}
+  const base = book.base || {}
+  const fallback = dark ? { intensity: 22, fade: 0, material: 'titlebar', scope: 'window' }
+                        : { intensity: 66, fade: 1, material: 'header', scope: 'window' }
+  return slot[field] ?? other[field] ?? base[field] ?? fallback[field]
+}
+
 function currentIntensity() {
   const dark = resolvedDark()
   const book = readTranslucencyBook()
-  const slot = dark ? (book.dark.intensity ?? book.base.intensity) : (book.light.intensity ?? book.base.intensity)
-  if (typeof slot === 'number') return slot
-  return dark ? 22 : 66
+  return resolveBookField(book, 'intensity', dark)
 }
 
 function writeIntensity(intensity) {
@@ -790,18 +800,16 @@ function writeIntensity(intensity) {
 }
 
 function pushTranslucencyIpc(book, dark) {
-  // 实时驱动原生窗口透明效果（官方 IPC 通道）
-  const slot = book[dark ? 'dark' : 'light'] || {}
-  const base = book.base || {}
+  // 实时驱动原生窗口透明效果（官方 IPC 通道）；取值走明暗空槽镜像
   const defaults = dark ? { intensity: 22, fade: 0, material: 'titlebar', scope: 'window' }
                         : { intensity: 66, fade: 1, material: 'header', scope: 'window' }
   try {
     window.hermesDesktop?.setTranslucency?.({
       mode: book.mode,
-      intensity: slot.intensity ?? base.intensity ?? defaults.intensity,
-      fade: slot.fade ?? base.fade ?? defaults.fade,
-      material: slot.material ?? base.material ?? defaults.material,
-      scope: slot.scope ?? base.scope ?? defaults.scope,
+      intensity: resolveBookField(book, 'intensity', dark),
+      fade: resolveBookField(book, 'fade', dark),
+      material: resolveBookField(book, 'material', dark),
+      scope: resolveBookField(book, 'scope', dark),
       glassSupported: true
     })
   } catch {}
@@ -887,26 +895,23 @@ function AppearancePanel() {
   const [intensity, setIntensityState] = useState(() => currentIntensity())
   const [fade, setFadeState] = useState(() => {
     try {
-      const dark = resolvedDark()
       const raw = JSON.parse(localStorage.getItem(TRANSLUCENCY_KEY) || 'null')
-      const slot = dark ? (raw?.dark?.fade ?? raw?.base?.fade) : (raw?.light?.fade ?? raw?.base?.fade)
-      return typeof slot === 'number' ? slot : (dark ? 0 : 1)
+      if (!raw) return resolvedDark() ? 0 : 1
+      return resolveBookField(raw, 'fade', resolvedDark())
     } catch { return 0 }
   })
   const [glassMaterial, setGlassMaterialState] = useState(() => {
     try {
-      const dark = resolvedDark()
       const raw = JSON.parse(localStorage.getItem(TRANSLUCENCY_KEY) || 'null')
-      return dark ? (raw?.dark?.material ?? raw?.base?.material ?? 'titlebar')
-                  : (raw?.light?.material ?? raw?.base?.material ?? 'header')
+      if (!raw) return resolvedDark() ? 'titlebar' : 'header'
+      return resolveBookField(raw, 'material', resolvedDark())
     } catch { return 'titlebar' }
   })
   const [glassScope, setGlassScopeState] = useState(() => {
     try {
-      const dark = resolvedDark()
       const raw = JSON.parse(localStorage.getItem(TRANSLUCENCY_KEY) || 'null')
-      return dark ? (raw?.dark?.scope ?? raw?.base?.scope ?? 'window')
-                  : (raw?.light?.scope ?? raw?.base?.scope ?? 'window')
+      if (!raw) return 'window'
+      return resolveBookField(raw, 'scope', resolvedDark())
     } catch { return 'window' }
   })
   const [font, setFont] = useState(() => ctxRef.storage.get(FONT_KEY, true))
@@ -1038,6 +1043,9 @@ function AppearancePanel() {
       const book = readTranslucencyBook()
       book.mode = mode
       localStorage.setItem(TRANSLUCENCY_KEY, JSON.stringify(book))
+      // 必须补发 storage 事件：官方 atom 监听此键同步账本，漏发会让官方揣着旧账本，
+      // 在下次明暗切换时用旧值覆盖刚设的参数（偶发失效根因）
+      window.dispatchEvent(new StorageEvent('storage', { key: TRANSLUCENCY_KEY }))
       pushTranslucencyIpc(book, resolvedDark())
     } catch {}
     setTimeout(() => setIntensityState(currentIntensity()), 0)
