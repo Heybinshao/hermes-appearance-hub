@@ -77,10 +77,10 @@
 把下面这句话直接发给 Hermes 就行：
 
 ```
-安装一下 https://github.com/Heybinshao/hermes-appearance-hub 这个桌面插件，装好后重载插件并告诉我怎么用
+安装一下 https://github.com/Heybinshao/hermes-appearance-hub 这个桌面插件，顺便去霞鹜文楷的 GitHub 仓库（lxgw/LxgwWenKai）下载 Regular 和 Mono 字体装到系统，装好后重载插件并告诉我怎么用
 ```
 
-Hermes 会自动 clone 到桌面插件目录并重载，无需手动操作。
+Hermes 会自动 clone 插件到桌面插件目录、下载安装字体并重载，无需手动操作。
 
 手动安装（等价方式）：
 
