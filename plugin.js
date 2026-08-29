@@ -1173,19 +1173,6 @@ function AppearancePanel() {
             value: themeMode,
             onChange: setThemeMode,
             className: 'shrink-0 scale-90'
-          }),
-          // 语言三键（官方 I18nProvider setLocale 通道）；简/繁/EN 为自指符号不进 i18n
-          jsx(SegmentedControl, {
-            options: [
-              { id: 'zh', label: '简' },
-              { id: 'zh-hant', label: '繁' },
-              { id: 'en', label: 'EN' }
-            ],
-            value: locale,
-            onChange: (id) => { setNativeLocale(id); haptic('tap') },
-            disabled: isSavingLocale,
-            className: 'shrink-0 scale-90',
-            'aria-label': t('language.title')
           })
         ]
       }),
@@ -1200,7 +1187,20 @@ function AppearancePanel() {
                 className: 'flex size-6 shrink-0 items-center justify-center',
                 children: jsx(icons.Palette, { className: 'size-3.5 text-(--ui-text-secondary)' })
               }),
-              jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: t('theme.gridTitle') })
+              jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: t('theme.gridTitle') }),
+              // 语言三键（官方 I18nProvider setLocale 通道）；简/繁/EN 为自指符号不进 i18n
+              jsx(SegmentedControl, {
+                options: [
+                  { id: 'zh', label: '简' },
+                  { id: 'zh-hant', label: '繁' },
+                  { id: 'en', label: 'EN' }
+                ],
+                value: locale,
+                onChange: (id) => { setNativeLocale(id); haptic('tap') },
+                disabled: isSavingLocale,
+                className: 'shrink-0 scale-90',
+                'aria-label': t('language.title')
+              })
             ]
           }),
           jsx(
