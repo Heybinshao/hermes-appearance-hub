@@ -1,4 +1,4 @@
-# Hermes Appearance Hub ![版本](https://img.shields.io/badge/版本-v2.0.2-blue)
+# Hermes Appearance Hub ![版本](https://img.shields.io/badge/版本-v2.1.0-blue)
 
 给 Hermes 桌面端用的**外观整合插件**：把主题、纸纹、字体、缩放、标签栏、密度、聊天背景、窗口透明、开场标识等外观设置收进一个状态栏入口，一键管理，设置持久化。
 
@@ -7,6 +7,7 @@
 - ✅ 无需构建、不改应用代码——单个 ESM 文件
 - ✅ 状态栏「外观」按钮 → 浮窗开关，与核心状态栏工具同款交互
 - ✅ **主题切换**：明亮/暗色/跟随系统三档 + 11 个原生主题一键切换，实时生效
+- ✅ **语言快捷切换**：简/繁/EN 三键绑定官方语言通道，一键切换界面语言（双栏在顶部标题行、单栏在主题标题行）
 - ✅ **字体**：霞鹜文楷界面字体一键开关
 - ✅ **纸纹**：宣纸噪点层，明暗配方各四档（极轻/微调/经典/贴地·贴顶）
 - ✅ **界面缩放**：直接驱动 Hermes 原生缩放（90–175% 六档），与 Settings → Appearance、View 菜单同一机制
@@ -31,13 +32,13 @@
 
 点击状态栏「外观」按钮弹出，所有开关即时生效：
 
-![外观浮窗 · 单栏](assets/screenshot-panel.png)
+![外观浮窗 · 单栏](assets/screenshot-panel.jpg)
 
 ### 外观浮窗 · 双栏
 
 底部「单栏 / 双栏」开关一键切换，双栏下面板高度减半，矮屏/大缩放不再需要滚动：
 
-![外观浮窗 · 双栏](assets/screenshot-panel-dual.png)
+![外观浮窗 · 双栏](assets/screenshot-panel-dual.jpg)
 
 ### 开场标识自定义
 
@@ -77,7 +78,7 @@
 把下面这句话直接发给 Hermes 就行：
 
 ```
-安装一下 https://github.com/Heybinshao/hermes-appearance-hub 这个桌面插件，顺便去霞鹜文楷的 GitHub 仓库（lxgw/LxgwWenKai）下载 Regular 和 Mono 字体装到系统，装好后重载插件并告诉我怎么用
+安装一下 https://github.com/Heybinshao/hermes-appearance-hub 这个桌面插件，顺便去 https://github.com/lxgw/LxgwWenKai 下载 Regular 和 Mono 字体装到系统，装好后重载插件并告诉我怎么用
 ```
 
 Hermes 会自动 clone 插件到桌面插件目录、下载安装字体并重载，无需手动操作。
