@@ -70,17 +70,24 @@
 全局字体功能使用 **霞鹜文楷（LXGW WenKai）** 与 **霞鹜文楷 Mono（LXGW WenKai Mono）**：
 
 - 字体仓库：[lxgw/LxgwWenKai](https://github.com/lxgw/LxgwWenKai)（MIT License，开源可商用）
-
-> 字体需先在本机安装，未安装时自动回退系统字体。
+- **无需手动安装字体**：本机已装则直接用系统字体（零网络依赖）；未安装时插件自动从 CDN 加载 webfont 分片（按需下载，只取界面用到的字符），开箱即用
 
 ## 安装
 
-```bash
-# 把插件目录复制到 Hermes 桌面插件目录
-cp -r hermes-appearance-hub ~/.hermes/desktop-plugins/
+把下面这句话直接发给 Hermes 就行：
+
+```
+安装一下 https://github.com/Heybinshao/hermes-appearance-hub 这个桌面插件，装好后重载插件并告诉我怎么用
 ```
 
-然后 **Cmd+Q 完全退出 Hermes Desktop 再打开**（或 ⌘K → **Reload desktop plugins**）。
+Hermes 会自动 clone 到桌面插件目录并重载，无需手动操作。
+
+手动安装（等价方式）：
+
+```bash
+# 把插件目录复制到 Hermes 桌面插件目录
+git clone https://github.com/Heybinshao/hermes-appearance-hub ~/.hermes/desktop-plugins/hermes-appearance-hub
+```
 
 > 如果 Hermes 使用了非默认 profile，插件目录是 `~/.hermes/profiles/<name>/desktop-plugins/`。
 > 不确定时在桌面端 Settings → Plugins 里查看插件目录路径。
