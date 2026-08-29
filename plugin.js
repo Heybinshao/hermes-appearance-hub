@@ -28,6 +28,7 @@ import { jsx, jsxs } from 'react/jsx-runtime'
 export const LOCALES = {
   en: {
     statusbar: { label: 'Appearance', title: 'Appearance Settings', toggleLabel: 'Appearance Settings' },
+    language: { title: 'Language' },
     theme: {
       title: 'Appearance',
       modeLight: 'Light', modeDark: 'Dark', modeSystem: 'System',
@@ -63,6 +64,7 @@ export const LOCALES = {
   },
   zh: {
     statusbar: { label: '外观', title: '外观设置', toggleLabel: '外观设置' },
+    language: { title: '语言' },
     theme: {
       title: '外观',
       modeLight: '明亮', modeDark: '暗色', modeSystem: '跟随系统',
@@ -98,6 +100,7 @@ export const LOCALES = {
   },
   'zh-hant': {
     statusbar: { label: '外觀', title: '外觀設定', toggleLabel: '外觀設定' },
+    language: { title: '語言' },
     theme: {
       title: '外觀',
       modeLight: '明亮', modeDark: '深色', modeSystem: '跟隨系統',
@@ -872,7 +875,8 @@ function AppearancePanel() {
   const t = usePluginI18n(ID)
   const label = (o) => (o.labelKey ? t(o.labelKey) : o.label)
   // en 下单行区块改纵向通栏（标题在上、控件 w-full 在下，与界面缩放同构）；zh/zh-hant 保持横排
-  const { locale } = useI18n()
+  // setLocale/isSavingLocale 来自官方 I18nProvider（useI18n 即官方 context），语言三键走同一官方通道
+  const { locale, setLocale: setNativeLocale, isSavingLocale } = useI18n()
   const stackedLayout = locale === 'en'
   const [paper, setPaper] = useState(() => ctxRef.storage.get(PAPER_KEY, true))
   const [darkRecipe, setDarkRecipeState] = useState(() => {
@@ -1169,6 +1173,19 @@ function AppearancePanel() {
             value: themeMode,
             onChange: setThemeMode,
             className: 'shrink-0 scale-90'
+          }),
+          // 语言三键（官方 I18nProvider setLocale 通道）；简/繁/EN 为自指符号不进 i18n
+          jsx(SegmentedControl, {
+            options: [
+              { id: 'zh', label: '简' },
+              { id: 'zh-hant', label: '繁' },
+              { id: 'en', label: 'EN' }
+            ],
+            value: locale,
+            onChange: (id) => { setNativeLocale(id); haptic('tap') },
+            disabled: isSavingLocale,
+            className: 'shrink-0 scale-90',
+            'aria-label': t('language.title')
           })
         ]
       }),
