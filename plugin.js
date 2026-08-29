@@ -113,7 +113,7 @@ export const LOCALES = {
       recipeLightSet: { light: '極輕', subtle: '微調', classic: '經典', top: '貼頂' },
       recipeDarkSet: { light: '極輕', subtle: '微調', classic: '經典', ground: '貼地' }
     },
-    tabstrip: { title: '分頁列', desc: '切換/新增工作階段後生效', auto: '自動', always: '一律', never: '永不' },
+    tabstrip: { title: '分頁列', desc: '切換/新增後生效', auto: '自動', always: '一律', never: '永不' },
     density: { title: '工作階段列表密度', compact: '緊湊', comfortable: '舒適', detailed: '詳細' },
     backdrop: { title: '聊天背景', desc: '對話後方那張淡淡的雕像圖片', off: '關閉', on: '開啟' },
     translucency: {
@@ -1347,7 +1347,8 @@ function AppearancePanel() {
             value: tabStrip,
             onChange: setTabStrip,
             className: stackedLayout ? 'w-full' : 'ml-auto',
-            style: stackedLayout ? undefined : { width: '150px' }
+            // flexShrink:0 禁止被长描述挤压——繁体曾压缩至此控件一字一行竖排断行
+            style: stackedLayout ? undefined : { width: '150px', flexShrink: 0 }
           })
         ]
       }),
@@ -1373,7 +1374,7 @@ function AppearancePanel() {
             value: density,
             onChange: setDensity,
             className: stackedLayout ? 'w-full' : 'ml-auto',
-            style: stackedLayout ? undefined : { width: '150px' }
+            style: stackedLayout ? undefined : { width: '150px', flexShrink: 0 }
           })
         ]
       }),
@@ -1404,7 +1405,7 @@ function AppearancePanel() {
             value: backdrop ? 'on' : 'off',
             onChange: (id) => toggleBackdrop(id === 'on'),
             className: 'ml-auto',
-            style: { width: '150px' }
+            style: { width: '150px', flexShrink: 0 }
           })
         ]
       }),
