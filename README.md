@@ -1,4 +1,4 @@
-# Hermes Appearance Hub ![版本](https://img.shields.io/badge/版本-v2.1.0-blue)
+# Hermes Appearance Hub ![版本](https://img.shields.io/badge/版本-v2.2.0-blue)
 
 给 Hermes 桌面端用的**外观整合插件**：把主题、纸纹、字体、缩放、标签栏、密度、聊天背景、窗口透明、开场标识等外观设置收进一个状态栏入口，一键管理，设置持久化。
 
@@ -6,7 +6,7 @@
 
 - ✅ 无需构建、不改应用代码——单个 ESM 文件
 - ✅ 状态栏「外观」按钮 → 浮窗开关，与核心状态栏工具同款交互
-- ✅ **主题切换**：明亮/暗色/跟随系统三档 + 11 个原生主题一键切换，实时生效
+- ✅ **主题切换**：明亮/暗色/跟随系统三档 + 12 个主题一键切换（11 个原生 + **Binshao**——Obsidian Primary 暖纸色系移植，明暗双模式 + 终端配色），实时生效
 - ✅ **语言快捷切换**：简/繁/EN 三键绑定官方语言通道，一键切换界面语言（双栏在顶部标题行、单栏在主题标题行）
 - ✅ **字体**：霞鹜文楷界面字体一键开关
 - ✅ **纸纹**：宣纸噪点层，明暗配方各四档（极轻/微调/经典/贴地·贴顶）
@@ -39,6 +39,14 @@
 底部「单栏 / 双栏」开关一键切换，双栏下面板高度减半，矮屏/大缩放不再需要滚动：
 
 ![外观浮窗 · 双栏](assets/screenshot-panel-dual.jpg)
+
+### Binshao 主题（移植自 Obsidian Primary）
+
+暖纸色系明暗双模式，配纸纹层食用更佳——亮色泛黄杂志纸，暗色深棕纸：
+
+![Binshao · 明亮](assets/screenshot-theme-binshao-light.jpg)
+
+![Binshao · 暗色](assets/screenshot-theme-binshao-dark.jpg)
 
 ### 开场标识自定义
 
@@ -97,7 +105,7 @@ git clone https://github.com/Heybinshao/hermes-appearance-hub ~/.hermes/desktop-
 
 1. 状态栏右侧出现「外观」按钮（调色盘图标），点击弹出浮窗
 2. 所有能力即时生效：
-   - **主题**：右上角明亮/暗色/系统三档；网格区 11 个原生主题点击即切
+   - **主题**：右上角明亮/暗色/系统三档；网格区 12 个主题点击即切（11 个原生 + Binshao）
    - **字体**：霞鹜文楷界面字体一键开关
    - **纸纹**：噪点层随明暗自动切换；下方配方可选极轻/微调/经典/贴地（暗色）或贴顶（浅色），从左到右由轻到重
    - **界面缩放**：六档按钮，直接驱动 Hermes 原生缩放，与设置/View 菜单同步
@@ -130,6 +138,7 @@ rm -rf ~/.hermes/desktop-plugins/hermes-appearance-hub
 - **密度/标签栏/聊天背景**：直写官方 localStorage 键，并通过动态 import 官方打包 chunk 拿到 nanostores atom 实时驱动界面（运行时按行为特征识别 atom，无硬编码混淆名）；atom 未识别时退回 localStorage 直写
 - **窗口透明**：写 TranslucencyBook JSON 后直接调用 `window.hermesDesktop.setTranslucency()` IPC，实时驱动原生窗口效果
 - **双栏布局**：面板区块提取为列表后按列分配渲染，标题行通栏；布局选择持久化到插件 storage，单栏模式与原始布局完全一致
+- **Binshao 主题**：主题种子写入官方用户主题 localStorage 键（`hermes-desktop-user-themes-v1`），经官方 `resolveTheme` 生效；另注入一小段作用域锁定的 CSS（选中色/输入框底/行内代码），补齐主题管道外的硬编码色
 
 ## 关于作者
 
