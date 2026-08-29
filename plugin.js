@@ -1168,6 +1168,19 @@ function AppearancePanel() {
             children: jsx(icons.Palette, { className: 'size-3.5 text-(--ui-text-secondary)' })
           }),
           jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight font-medium', children: t('theme.title') }),
+          // 双栏：语言三键放标题行、主题三档左侧（42rem 宽度充足）；单栏 21rem 放不下，仍留主题版块标题行
+          dualCol && jsx(SegmentedControl, {
+            options: [
+              { id: 'zh', label: '简' },
+              { id: 'zh-hant', label: '繁' },
+              { id: 'en', label: 'EN' }
+            ],
+            value: locale,
+            onChange: (id) => { setNativeLocale(id); haptic('tap') },
+            disabled: isSavingLocale,
+            className: 'shrink-0 scale-90',
+            'aria-label': t('language.title')
+          }),
           jsx(SegmentedControl, {
             options: THEME_MODES.map((m) => ({ ...m, label: label(m) })),
             value: themeMode,
@@ -1188,8 +1201,8 @@ function AppearancePanel() {
                 children: jsx(icons.Palette, { className: 'size-3.5 text-(--ui-text-secondary)' })
               }),
               jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: t('theme.gridTitle') }),
-              // 语言三键（官方 I18nProvider setLocale 通道）；简/繁/EN 为自指符号不进 i18n
-              jsx(SegmentedControl, {
+              // 语言三键：双栏时已在顶部标题行（主题三档左侧），此处仅单栏显示
+              !dualCol && jsx(SegmentedControl, {
                 options: [
                   { id: 'zh', label: '简' },
                   { id: 'zh-hant', label: '繁' },
