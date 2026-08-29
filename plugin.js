@@ -616,7 +616,9 @@ const THEME_MODES = [
 
 function readThemeMode() {
   try {
-    const profile = localStorage.getItem('hermes-active-profile') || 'default'
+    // 活跃 profile 键与官方 ThemeProvider 一致（hermes-desktop-active-profile-v1）；
+    // 旧键 hermes-active-profile 在官方代码中不存在，曾导致多 profile 下模式误读 default 槽
+    const profile = localStorage.getItem('hermes-desktop-active-profile-v1') || 'default'
     if (profile !== 'default') {
       const rec = JSON.parse(localStorage.getItem(MODE_RECORD_KEY) || '{}')
       if (rec[profile]) return rec[profile]
@@ -629,7 +631,8 @@ function readThemeMode() {
 
 function writeThemeMode(mode) {
   try {
-    const profile = localStorage.getItem('hermes-active-profile') || 'default'
+    // 与 readThemeMode 同键，跟官方 ThemeProvider 的 Xt setter 对齐
+    const profile = localStorage.getItem('hermes-desktop-active-profile-v1') || 'default'
     if (profile === 'default') {
       // 同键重写也会触发原生 storage 监听（同窗口 setItem 不自动派发，手动补发）
       localStorage.setItem(MODE_GLOBAL_KEY, mode)
