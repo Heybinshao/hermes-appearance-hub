@@ -848,6 +848,148 @@ function pushTranslucencyIpc(book, dark) {
 // ── 主题（皮肤）───────────────────────────────────────────────────
 // 与模式同款官方管道：skin 存 hermes-desktop-theme-v2（default）/ profile-themes record，
 // 官方 storage 监听实时生效。列表 = 原生 BUILTIN_THEME_LIST（presets.ts）。
+// ── Binshao 用户主题（Obsidian Primary 移植）──────────────────────
+// 种子值由混合链反解生成（solve-seeds.mjs，正向验证 0 偏差）：官方 skin 消费端
+// getBaseColors 走 resolveTheme → user themes 在解析链内，写 user-themes key 即生效。
+// register 幂等注入 + 热更新：每次 register 重写（localStorage 被清自愈）。
+const USER_THEME_KEY = 'hermes-desktop-user-themes-v1'
+const BINSHAO_PATCH_ID = 'hub-binshao-patch'
+const USER_THEMES = 
+{
+  "binshao": {
+    "name": "binshao",
+    "label": "Binshao",
+    "description": "宝藏彬少 × Obsidian Primary（Cecilia May）—— 暖纸色系移植版，明暗双模式。",
+    "colors": {
+      "background": "#eee6db",
+      "foreground": "#593e22",
+      "card": "#ecdecb",
+      "cardForeground": "#593e22",
+      "muted": "#f2ece3",
+      "mutedForeground": "#836b49",
+      "popover": "#d9c2a3",
+      "popoverForeground": "#593e22",
+      "primary": "#a4896e",
+      "primaryForeground": "#fcfaf8",
+      "secondary": "#f2ece3",
+      "secondaryForeground": "#593e22",
+      "accent": "#f1ede7",
+      "accentForeground": "#593e22",
+      "border": "#e4d7c3",
+      "input": "#d7c4a8",
+      "ring": "#a4896e",
+      "midground": "#a4896e",
+      "midgroundForeground": "#fcfaf8",
+      "composerRing": "#a4896e",
+      "destructive": "#bf3f36",
+      "destructiveForeground": "#fcfaf8",
+      "sidebarBackground": "#ebe3d6",
+      "sidebarBorder": "#cfb696",
+      "userBubble": "#ecdecb",
+      "userBubbleBorder": "#e4d7c3"
+    },
+    "darkColors": {
+      "background": "#352b22",
+      "foreground": "#ddcab1",
+      "card": "#644e35",
+      "cardForeground": "#ddcab1",
+      "muted": "#2a231d",
+      "mutedForeground": "#a88d67",
+      "popover": "#4f3f2d",
+      "popoverForeground": "#ddcab1",
+      "primary": "#5a4533",
+      "primaryForeground": "#f0e4d5",
+      "secondary": "#2a231d",
+      "secondaryForeground": "#ddcab1",
+      "accent": "#ded1c2",
+      "accentForeground": "#ddcab1",
+      "border": "#41352a",
+      "input": "#48392c",
+      "ring": "#5a4533",
+      "midground": "#5a4533",
+      "midgroundForeground": "#f0e4d5",
+      "composerRing": "#5a4533",
+      "destructive": "#e02f29",
+      "destructiveForeground": "#f0e4d5",
+      "sidebarBackground": "#2a231d",
+      "sidebarBorder": "#51402f",
+      "userBubble": "#4f3f2d",
+      "userBubbleBorder": "#41352a"
+    },
+    "terminal": {
+      "foreground": "#593e22",
+      "cursor": "#a4896e",
+      "selectionBackground": "rgba(248, 197, 46, 0.2)",
+      "black": "#432e14",
+      "red": "#df453a",
+      "green": "#3eb174",
+      "yellow": "#ecb936",
+      "blue": "#2a90cb",
+      "magenta": "#9f72bb",
+      "cyan": "#63a2bb",
+      "white": "#fcfaf8",
+      "brightBlack": "#b79d7b",
+      "brightRed": "#d9746d",
+      "brightGreen": "#8bc1a4",
+      "brightYellow": "#e7c56f",
+      "brightBlue": "#63a2bb",
+      "brightMagenta": "#cba7dc",
+      "brightCyan": "#63a2bb",
+      "brightWhite": "#fcfaf8"
+    },
+    "darkTerminal": {
+      "foreground": "#ddcab1",
+      "cursor": "#5a4533",
+      "selectionBackground": "rgba(249, 207, 81, 0.2)",
+      "black": "#1f1a14",
+      "red": "#f7685e",
+      "green": "#2ea873",
+      "yellow": "#e5aa1f",
+      "blue": "#4db2d1",
+      "magenta": "#6260c3",
+      "cyan": "#6abfd2",
+      "white": "#f0e4d5",
+      "brightBlack": "#6b563d",
+      "brightRed": "#fb8479",
+      "brightGreen": "#4ec68e",
+      "brightYellow": "#dfb64e",
+      "brightBlue": "#6abfd2",
+      "brightMagenta": "#8a87d9",
+      "brightCyan": "#6abfd2",
+      "brightWhite": "#f0e4d5"
+    }
+  }
+}
+// 层2配色补丁：选中黄/输入框底/行内代码（applyTheme 管道外的硬编码色），
+// 作用域锁 [data-hermes-theme="binshao"]，不泄漏其他主题。
+const BINSHAO_PATCH_CSS = `[data-hermes-theme="binshao"] {
+  --ui-selection-background: rgba(248, 197, 46, 0.2);
+  --ui-bg-input: #f8f5f1;
+  --ui-inline-code-background: color-mix(in srgb, #5e544b 26%, transparent);
+  --ui-inline-code-foreground: #593e22;
+}
+[data-hermes-theme="binshao"].dark {
+  --ui-selection-background: rgba(249, 207, 81, 0.2);
+  --ui-bg-input: #302921;
+  --ui-inline-code-background: color-mix(in srgb, #ffffff 7%, transparent);
+  --ui-inline-code-foreground: rgba(255, 255, 255, 0.88);
+}
+`
+
+function injectBinshaoTheme() {
+  try {
+    const raw = localStorage.getItem(USER_THEME_KEY)
+    const record = raw ? JSON.parse(raw) : {}
+    Object.assign(record, USER_THEMES)
+    localStorage.setItem(USER_THEME_KEY, JSON.stringify(record))
+  } catch {}
+  document.getElementById(BINSHAO_PATCH_ID)?.remove()
+  const style = document.createElement('style')
+  style.id = BINSHAO_PATCH_ID
+  style.textContent = BINSHAO_PATCH_CSS
+  document.head.appendChild(style)
+}
+
 const SKIN_GLOBAL_KEY = 'hermes-desktop-theme-v2'
 const SKIN_RECORD_KEY = 'hermes-desktop-profile-themes-v1'
 const THEMES = [
@@ -861,7 +1003,8 @@ const THEMES = [
   { id: 'ember', label: 'Ember' },
   { id: 'mono', label: 'Mono' },
   { id: 'cyberpunk', label: 'Cyberpunk' },
-  { id: 'slate', label: 'Slate' }
+  { id: 'slate', label: 'Slate' },
+  { id: 'binshao', label: 'Binshao' }
 ]
 
 function readThemeSkin() {
@@ -1725,6 +1868,7 @@ export default {
       // 按持久化状态初始化（默认开启，与原插件行为一致）
       if (ctx.storage.get(PAPER_KEY, true)) injectPaper()
       if (ctx.storage.get(FONT_KEY, true)) applyFont()
+      injectBinshaoTheme()
       // 开场标识：先与原生键对账（设置页关过 → 插件跟到关闭档），再按档位恢复注入；
       // 挂 setItem 钩子后，设置页开关改动即时推送过来（与缩放 onChanged 同款推送模型）
       try {
