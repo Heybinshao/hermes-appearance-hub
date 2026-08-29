@@ -1180,11 +1180,13 @@ function AppearancePanel() {
       jsxs('div', {
         className: 'flex flex-col gap-1.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
         children: [
-          // 语言三键独占标题行右侧：塞进原「主题」标题行会把右侧分段控件挤压致文字竖排断行
-          // （繁体实测踩坑）。标题行 = 「主题」标题 + 语言三键靠右，主题网格独占下一行。
           jsxs('div', {
-            className: 'flex items-center justify-between gap-2.5',
+            className: 'flex items-center gap-2.5',
             children: [
+              jsx('span', {
+                className: 'flex size-6 shrink-0 items-center justify-center',
+                children: jsx(icons.Palette, { className: 'size-3.5 text-(--ui-text-secondary)' })
+              }),
               jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: t('theme.gridTitle') }),
               // 语言三键（官方 I18nProvider setLocale 通道）；简/繁/EN 为自指符号不进 i18n
               jsx(SegmentedControl, {
