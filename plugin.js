@@ -859,7 +859,7 @@ const USER_THEMES =
   "binshao": {
     "name": "binshao",
     "label": "Binshao",
-    "description": "宝藏彬少 × Obsidian Primary（Cecilia May）—— 暖纸色系移植版，明暗双模式。",
+    "description": "暖纸色系移植版，明暗双模式。",
     "colors": {
       "background": "#eee6db",
       "foreground": "#593e22",
