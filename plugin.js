@@ -1,19 +1,14 @@
 /**
- * Hermes Appearance Hub — 外观整合面板：纸纹 + 字体 + 原生界面缩放。
- *
- * 整合（不修改原插件）：
- *   - hermes-paper-texture  纸纹：宣纸质感噪点层（明暗自动适配）
- *   - hermes-font-wenkai    字体：界面字体 = 霞鹜文楷
+ * Hermes Appearance Hub — 外观整合面板。
  *
  * 用法：
  *   - 状态栏「外观」按钮 → 标准状态栏弹窗（DropdownMenu，与核心工具一致），
- *     两个开关 + 原生界面缩放档位即时生效。
+ *     主题/语言/字体/纸纹/缩放/标签栏/密度/聊天背景/窗口透明/开场标识即时生效。
  *   - 「界面缩放」直接驱动 Hermes 原生缩放（window.hermesDesktop.zoom.setPercent）
  *     —— 与 Settings → Appearance → 界面缩放、View 菜单同一套机制，互相实时同步。
  *   - 状态栏右键菜单可勾选显示/隐藏本入口（toggleLabel）。
- *   - 原两个插件建议在 Settings → Plugins 中关闭，避免纸纹叠加。
  *
- * 机制：注入/移除均用本插件专属 DOM id，与两个原插件互不干扰；
+ * 机制：注入/移除均用本插件专属 DOM id；
  *       插件被禁用/重载时 onDispose 清理全部注入，不留残留。
  *       状态栏入口用 declarative data 通道（variant:'menu' + menuContent），
  *       不自定义 Popover —— 与核心状态栏工具同一条渲染路径，最稳。
@@ -60,7 +55,7 @@ export const LOCALES = {
     zoom: { title: 'UI Scale', desc: 'Native scaling · synced with Settings/View menu' },
     layout: { single: 'Single column', dual: 'Dual column' },
     footer: { tip: 'Changes apply instantly · persist across restarts' },
-    notify: { ready: 'Appearance Hub ready — paper texture, font and native zoom live in the "Appearance" toggle in the status bar', failed: 'Appearance Hub injection failed: ' }
+    notify: { ready: 'Appearance Hub ready — use the Appearance toggle in the status bar', failed: 'Appearance Hub injection failed: ' }
   },
   zh: {
     statusbar: { label: '外观', title: '外观设置', toggleLabel: '外观设置' },
@@ -96,7 +91,7 @@ export const LOCALES = {
     zoom: { title: '界面缩放', desc: '原生缩放 · 与设置/View菜单同步' },
     layout: { single: '单栏', dual: '双栏' },
     footer: { tip: '修改即时生效 · 重启后保留' },
-    notify: { ready: '外观 Hub 已就绪 — 纸纹、字体、原生缩放在状态栏「外观」开关', failed: '外观 Hub 注入失败: ' }
+    notify: { ready: '外观 Hub 已就绪 — 状态栏「外观」开关', failed: '外观 Hub 注入失败: ' }
   },
   'zh-hant': {
     statusbar: { label: '外觀', title: '外觀設定', toggleLabel: '外觀設定' },
@@ -132,7 +127,7 @@ export const LOCALES = {
     zoom: { title: '介面縮放', desc: '原生縮放 · 與設定/檢視選單同步' },
     layout: { single: '單欄', dual: '雙欄' },
     footer: { tip: '修改即時生效 · 重啟後保留' },
-    notify: { ready: '外觀 Hub 已就緒 — 紙紋、字型、原生縮放在狀態列「外觀」開關', failed: '外觀 Hub 注入失敗: ' }
+    notify: { ready: '外觀 Hub 已就緒 — 狀態列「外觀」開關', failed: '外觀 Hub 注入失敗: ' }
   }
 }
 
