@@ -150,9 +150,7 @@ const ZOOM_OPTIONS = [
   { id: '175', label: '175%', percent: 175 }
 ]
 
-// 与 hermes-paper-texture 同机制，独立 DOM id 避免与原插件抢元素
 const PAPER_LAYER_ID = ID + '-paper'
-// 与 hermes-font-wenkai 同机制，独立 style id
 const FONT_STYLE_ID = ID + '-font-style'
 
 // ── 开场标识（intro splash）─────────────────────────────────────────
@@ -238,7 +236,7 @@ const INTRO_OPTIONS = [
 let ctxRef = null
 let paperObserver = null
 
-// ── 纸纹（照搬 hermes-paper-texture 的配方）────────────────────────
+// ── 纸纹 ────────────────────────────────────────────────────────
 function makeTexture(baseFreq, octaves, gain, offset, blur) {
   const colorMatrix =
     gain != null
@@ -324,7 +322,7 @@ function removePaper() {
   }
 }
 
-// ── 字体（照搬 hermes-font-wenkai 的规则）────────────────────────
+// ── 字体 ────────────────────────────────────────────────────────
 const FONT_SANS =
   '"LXGW WenKai", -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", emoji'
 const FONT_MONO =
