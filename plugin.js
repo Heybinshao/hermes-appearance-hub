@@ -334,29 +334,9 @@ const FONT_SANS =
   '"LXGW WenKai", -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", emoji'
 const FONT_MONO =
   '"LXGW WenKai Mono", Menlo, Monaco, "SF Mono", monospace, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", emoji'
-// 系统未装字体时的 webfont 兜底：CDN 分片子集（97 片 × ~7KB，unicode-range 按需加载），
-// family 名与系统字体完全一致 → 装了用系统（零网络），没装走 CDN（零手工安装）。
-// 实测 CDN: jsdelivr lxgw-wenkai-webfont@1.7.0（MIT，霞鹜文楷官方 webfont 化发行）。
-const FONT_WEBFONT_ID = ID + '-font-webfont'
-const FONT_WEBFONT_URL = 'https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css'
-
-function ensureFontWebfont() {
-  // 系统已装 LXGW WenKai 则不引 CDN（本地渲染零延迟）
-  try {
-    if (document.fonts && document.fonts.check('12px "LXGW WenKai"')) return
-  } catch {}
-  let link = document.getElementById(FONT_WEBFONT_ID)
-  if (!link) {
-    link = document.createElement('link')
-    link.id = FONT_WEBFONT_ID
-    link.rel = 'stylesheet'
-    link.href = FONT_WEBFONT_URL
-    document.head.appendChild(link)
-  }
-}
+// 只用本机已装的 LXGW WenKai；未安装则 CSS 回退到后面的系统字体栈。不走 CDN。
 
 function applyFont() {
-  ensureFontWebfont()
   let style = document.getElementById(FONT_STYLE_ID)
   if (!style) {
     style = document.createElement('style')
@@ -374,8 +354,6 @@ function applyFont() {
 function removeFont() {
   const style = document.getElementById(FONT_STYLE_ID)
   if (style) style.remove()
-  const link = document.getElementById(FONT_WEBFONT_ID)
-  if (link) link.remove()
 }
 
 // ── 开场标识：DOM 文本替换层（即时生效）+ 原生键落盘（重启后一致）──────────

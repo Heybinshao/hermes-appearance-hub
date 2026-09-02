@@ -79,7 +79,7 @@
 全局字体功能使用 **霞鹜文楷（LXGW WenKai）** 与 **霞鹜文楷 Mono（LXGW WenKai Mono）**：
 
 - 字体仓库：[lxgw/LxgwWenKai](https://github.com/lxgw/LxgwWenKai)（MIT License，开源可商用）
-- **无需手动安装字体**：本机已装则直接用系统字体（零网络依赖）；未安装时插件自动从 CDN 加载 webfont 分片（按需下载，只取界面用到的字符），开箱即用
+- **需装到系统**：插件只用本机已装的系统字体，不走 CDN。没装则回退系统默认字体
 
 ## 安装
 
