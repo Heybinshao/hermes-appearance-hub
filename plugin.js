@@ -833,19 +833,19 @@ const USER_THEMES =
     "description": "暖纸色系移植版，明暗双模式。",
     "colors": {
       "background": "#eee6db",
-      "foreground": "#593e22",
+      "foreground": "#4f351c",
       "card": "#ecdecb",
-      "cardForeground": "#593e22",
+      "cardForeground": "#4f351c",
       "muted": "#f2ece3",
-      "mutedForeground": "#836b49",
+      "mutedForeground": "#755d3e",
       "popover": "#d9c2a3",
-      "popoverForeground": "#593e22",
+      "popoverForeground": "#4f351c",
       "primary": "#a4896e",
       "primaryForeground": "#fcfaf8",
       "secondary": "#f2ece3",
-      "secondaryForeground": "#593e22",
+      "secondaryForeground": "#4f351c",
       "accent": "#f1ede7",
-      "accentForeground": "#593e22",
+      "accentForeground": "#4f351c",
       "border": "#e4d7c3",
       "input": "#d7c4a8",
       "ring": "#a4896e",
@@ -888,7 +888,7 @@ const USER_THEMES =
       "userBubbleBorder": "#6b563d"
     },
     "terminal": {
-      "foreground": "#593e22",
+      "foreground": "#4f351c",
       "cursor": "#a4896e",
       "selectionBackground": "rgba(248, 197, 46, 0.2)",
       "black": "#432e14",
@@ -937,7 +937,7 @@ const BINSHAO_PATCH_CSS = `[data-hermes-theme="binshao"] {
   --ui-selection-background: rgba(248, 197, 46, 0.2);
   --ui-bg-input: #f8f5f1;
   --ui-inline-code-background: color-mix(in srgb, #5e544b 26%, transparent);
-  --ui-inline-code-foreground: #593e22;
+  --ui-inline-code-foreground: #4f351c;
 }
 [data-hermes-theme="binshao"].dark {
   --ui-selection-background: rgba(249, 207, 81, 0.2);
