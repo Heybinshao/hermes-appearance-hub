@@ -14,7 +14,7 @@
  *       不自定义 Popover —— 与核心状态栏工具同一条渲染路径，最稳。
  */
 import { haptic, host, icons, Switch, SegmentedControl, Input, Textarea, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, usePluginI18n, useI18n } from '@hermes/plugin-sdk'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { jsx, jsxs } from 'react/jsx-runtime'
 
 // ── i18n 文案树（跟随 app 的 display.language，解析链：当前 locale → en → 键名）──
@@ -420,7 +420,9 @@ function handleIntroNativeWrite(key, value) {
   } else {
     applyIntroMode(current)
   }
-  introModeSubscribers.forEach((cb) => cb(current))
+  // 推送给面板的语义 = 最终开/关状态：官方页切关推 'off'（面板跟平到「关」），
+  // 切开推当前档位（面板跟平到存档档位）
+  introModeSubscribers.forEach((cb) => cb(value === 'false' ? 'off' : current))
 }
 
 function installIntroStorageHook() {
@@ -1067,6 +1069,9 @@ function AppearancePanel() {
     const v = ctxRef.storage.get(INTRO_MODE_KEY, 'native')
     return v === 'custom' ? 'custom' : 'native'
   })
+  // 订阅回调里读最新档位用（避免闭包过期）
+  const introModeRef = useRef(introMode)
+  useEffect(() => { introModeRef.current = introMode }, [introMode])
   const [introHeadline, setIntroHeadline] = useState(() => ctxRef.storage.get(INTRO_HEADLINE_KEY, 'HERMES AGENT'))
   const [introTagline, setIntroTagline] = useState(() => ctxRef.storage.get(INTRO_TAGLINE_KEY, ''))
   // 面板布局：双栏（默认）/ 单栏，底部提示行右侧开关切换
@@ -1095,8 +1100,9 @@ function AppearancePanel() {
   // 开场标识档位订阅：设置页切开关时，浮窗高亮即时跟平（推送模型，与 zoom 同款）
   useEffect(() => {
     const off = subscribeIntroMode((mode) => {
-      setIntroModeState(mode)
-      if (mode !== 'custom') {
+      setIntroOn(mode !== 'off')
+      setIntroModeState(mode === 'off' ? introModeRef.current : mode)
+      if (mode !== 'off') {
         // 外部改开关不会带文字变化，仅同步档位即可
         ctxRef && applyIntroMode(mode)
       }
@@ -1249,14 +1255,12 @@ function AppearancePanel() {
 
     const toggleIntro = (on) => {
     setIntroOn(on)
-    try {
-      localStorage.setItem(INTRO_NATIVE_KEY, on ? 'true' : 'false')
-      window.dispatchEvent(new StorageEvent('storage', { key: INTRO_NATIVE_KEY }))
-    } catch {}
     if (!on) {
-      stopIntroObserver()
-      introRestore()
+      // 关 = 三态走 'off'：applyIntroMode 统一做 CSS 隐藏 + 落盘原生键 false +
+      // 同步官方设置页开关，与用户手点官方页开关等效（即时生效）
+      applyIntroMode('off')
     } else {
+      // 开 = 按 Hub 存档档位恢复（native/custom）；恢复到 off 之外的档位
       const mode = ctxRef.storage.get(INTRO_MODE_KEY, 'native')
       applyIntroMode(mode === 'custom' ? 'custom' : 'native')
     }
