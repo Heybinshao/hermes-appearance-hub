@@ -1606,6 +1606,46 @@ function AppearancePanel() {
         ]
       }),
 
+      // 消息气泡（官方「消息气泡」滑杆提取：0=不透明 → 100=只剩边框）
+      jsxs('div', {
+        className: stackedLayout
+          ? 'flex flex-col gap-1.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)'
+          : 'flex items-center gap-2.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
+        children: [
+          jsxs('div', {
+            className: 'flex min-w-0 items-center gap-2.5',
+            children: [
+              jsx('span', {
+                className: 'flex size-6 shrink-0 items-center justify-center',
+                children: jsx(icons.MessageSquareText, { className: 'size-3.5 text-(--ui-text-secondary)' })
+              }),
+              jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: t('bubble.title') })
+            ]
+          }),
+          jsxs('div', {
+            className: 'flex min-w-0 items-center gap-2' + (stackedLayout ? '' : ' ml-auto'),
+            children: [
+              jsx('input', {
+                type: 'range',
+                min: 0,
+                max: 100,
+                step: 1,
+                value: bubble,
+                onChange: (e) => changeBubble(Number(e.target.value)),
+                style: SLIDER_STYLE,
+                className: stackedLayout ? 'min-w-0 w-full cursor-pointer' : 'min-w-0 flex-1 cursor-pointer',
+                'aria-label': t('bubble.title')
+              }),
+              jsx('span', {
+                style: { width: '32px', flexShrink: 0 },
+                className: 'text-right text-[0.625rem] tabular-nums text-(--ui-text-tertiary)',
+                children: bubble + '%'
+              })
+            ]
+          })
+        ]
+      }),
+
       // 聊天背景
       jsxs('div', {
         className: 'flex items-center gap-2.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
@@ -1864,8 +1904,8 @@ function AppearancePanel() {
         ]
       })
     ]
-  // 区块索引：0=标题 1=主题 2=字体 3=纸纹 4=标签栏 5=密度 6=聊天背景 7=窗口透明 8=开场标识 9=缩放 10=底部提示+布局开关
-  const [secTitle, secTheme, secFont, secPaper, secTabStrip, secDensity, secBackdrop,
+  // 区块索引：0=标题 1=主题 2=字体 3=纸纹 4=标签栏 5=密度 6=消息气泡 7=聊天背景 8=窗口透明 9=开场标识 10=缩放 11=底部提示+布局开关
+  const [secTitle, secTheme, secFont, secPaper, secTabStrip, secDensity, secBubble, secBackdrop,
          secTranslucency, secIntro, secZoom, secFooter] = secChildren
 
   // 双栏：标题通栏 + 左右两列；单栏：与改前完全一致的顺序；底部提示两种模式共用
@@ -1878,11 +1918,11 @@ function AppearancePanel() {
         ? jsxs('div', {
             className: 'flex flex-row',
             children: [
-              // 左列：主题 → 字体 → 纸纹 → 标签栏 → 密度（pr 内联——宿主未编译 .pr-3，曾致双栏不对称）
+              // 左列：主题 → 字体 → 纸纹 → 标签栏 → 密度 → 消息气泡（pr 内联——宿主未编译 .pr-3，曾致双栏不对称）
               jsxs('div', {
                 className: 'flex min-w-0 flex-1 flex-col',
                 style: { paddingRight: '12px' },
-                children: [secTheme, secFont, secPaper, secTabStrip, secDensity]
+                children: [secTheme, secFont, secPaper, secTabStrip, secDensity, secBubble]
               }),
               // 右列：聊天背景 → 窗口透明 → 开场标识 → 缩放（pl 内联，与左列对称）
               jsxs('div', {
@@ -1892,7 +1932,7 @@ function AppearancePanel() {
               })
             ]
           })
-        : [secTheme, secFont, secPaper, secTabStrip, secDensity, secBackdrop,
+        : [secTheme, secFont, secPaper, secTabStrip, secDensity, secBubble, secBackdrop,
            secTranslucency, secIntro, secZoom],
       secFooter
     ]
