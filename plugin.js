@@ -1904,7 +1904,7 @@ function AppearancePanel() {
         ]
       })
     ]
-  // 区块索引：0=标题 1=主题 2=字体 3=纸纹 4=标签栏 5=密度 6=消息气泡 7=聊天背景 8=窗口透明 9=开场标识 10=缩放 11=底部提示+布局开关
+  // 区块索引：0=标题 1=主题 2=字体 3=纸纹 4=标签栏 5=密度 6=聊天背景 7=消息气泡 8=窗口透明 9=开场标识 10=缩放 11=底部提示+布局开关
   const [secTitle, secTheme, secFont, secPaper, secTabStrip, secDensity, secBubble, secBackdrop,
          secTranslucency, secIntro, secZoom, secFooter] = secChildren
 
@@ -1918,21 +1918,21 @@ function AppearancePanel() {
         ? jsxs('div', {
             className: 'flex flex-row',
             children: [
-              // 左列：主题 → 字体 → 纸纹 → 标签栏 → 密度 → 消息气泡（pr 内联——宿主未编译 .pr-3，曾致双栏不对称）
+              // 左列：主题 → 字体 → 纸纹 → 标签栏 → 密度 → 聊天背景（pr 内联——宿主未编译 .pr-3，曾致双栏不对称）
               jsxs('div', {
                 className: 'flex min-w-0 flex-1 flex-col',
                 style: { paddingRight: '12px' },
-                children: [secTheme, secFont, secPaper, secTabStrip, secDensity, secBubble]
+                children: [secTheme, secFont, secPaper, secTabStrip, secDensity, secBackdrop]
               }),
-              // 右列：聊天背景 → 窗口透明 → 开场标识 → 缩放（pl 内联，与左列对称）
+              // 右列：消息气泡 → 窗口透明 → 开场标识 → 缩放（pl 内联，与左列对称）
               jsxs('div', {
                 className: 'flex min-w-0 flex-1 flex-col border-l border-(--ui-stroke-secondary)',
                 style: { paddingLeft: '12px' },
-                children: [secBackdrop, secTranslucency, secIntro, secZoom]
+                children: [secBubble, secTranslucency, secIntro, secZoom]
               })
             ]
           })
-        : [secTheme, secFont, secPaper, secTabStrip, secDensity, secBubble, secBackdrop,
+        : [secTheme, secFont, secPaper, secTabStrip, secDensity, secBackdrop, secBubble,
            secTranslucency, secIntro, secZoom],
       secFooter
     ]
