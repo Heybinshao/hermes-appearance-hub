@@ -199,6 +199,27 @@ const TABSTRIP_OPTIONS = [
   { id: 'never', labelKey: 'tabstrip.never' }
 ]
 const BACKDROP_KEY = 'hermes.desktop.backdrop.v1'
+// 消息气泡：官方 store/user-bubble-transparency.ts 的 subscribe 副作用等价实现——
+// 根节点 CSS 变量 + 同键持久化。0=不透明(默认，移除变量)，v>0 保留 (100-v)% 填充。
+const USER_BUBBLE_KEY = 'hermes.desktop.user-bubble-transparency.v1'
+
+function clampBubble(value) {
+  const n = Math.round(Number(value))
+  return Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 0
+}
+
+function applyUserBubble(value) {
+  const v = clampBubble(value)
+  try {
+    if (v === 0) {
+      document.documentElement.style.removeProperty('--user-bubble-keep')
+      localStorage.removeItem(USER_BUBBLE_KEY)
+    } else {
+      document.documentElement.style.setProperty('--user-bubble-keep', (100 - v) + '%')
+      localStorage.setItem(USER_BUBBLE_KEY, String(v))
+    }
+  } catch {}
+}
 const TRANSLUCENCY_KEY = 'hermes.desktop.translucency.v2'
 const GLASS_MATERIALS = ['under-window', 'popover', 'titlebar', 'header']
 const GLASS_SCOPES = ['window', 'sidebar']
@@ -1071,6 +1092,13 @@ function AppearancePanel() {
   const [themeMode, setThemeModeState] = useState(() => readThemeMode())
   const [density, setDensityState] = useState(() =>
     readSimpleKey(DENSITY_KEY, 'compact', ['compact', 'comfortable', 'detailed']))
+  const [bubble, setBubbleState] = useState(() => {
+    try { return clampBubble(localStorage.getItem(USER_BUBBLE_KEY) || 0) } catch { return 0 }
+  })
+  const changeBubble = (v) => {
+    setBubbleState(v)
+    applyUserBubble(v)
+  }
   const [tabStrip, setTabStripState] = useState(() =>
     readSimpleKey(TABSTRIP_KEY, 'auto', ['auto', 'always', 'never']))
   const [backdrop, setBackdropState] = useState(() => readBackdrop())
@@ -1885,6 +1913,8 @@ export default {
       // 按持久化状态初始化（默认开启，与原插件行为一致）
       if (ctx.storage.get(PAPER_KEY, true)) injectPaper()
       if (ctx.storage.get(FONT_KEY, true)) applyFont()
+      // 消息气泡：兜插件重载场景，按官方键恢复 CSS 变量（官方 app 启动已自恢复，幂等）
+      applyUserBubble((() => { try { return localStorage.getItem(USER_BUBBLE_KEY) || 0 } catch { return 0 } })())
       injectBinshaoTheme()
       // 开场标识：先与原生键对账，再按最终状态恢复注入；
       // 挂 setItem 钩子后，设置页开关改动即时推送过来（与缩放 onChanged 同款推送模型）
