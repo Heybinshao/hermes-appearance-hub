@@ -38,6 +38,7 @@ export const LOCALES = {
     },
     tabstrip: { title: 'Tab Strip', desc: 'Applies after switching/creating a session', auto: 'Auto', always: 'Always', never: 'Never' },
     density: { title: 'Session List Density', compact: 'Compact', comfortable: 'Comfortable', detailed: 'Detailed' },
+    bubble: { title: 'Message Bubbles', desc: 'How transparent your own messages are. 0 is solid, 100 keeps only the outline.' },
     backdrop: { title: 'Chat Backdrop', desc: 'The faint statue image behind the conversation.', off: 'Off', on: 'On' },
     translucency: {
       title: 'Window Translucency', clear: 'Clear', glass: 'Glass',
@@ -74,6 +75,7 @@ export const LOCALES = {
     },
     tabstrip: { title: '标签栏', desc: '切换/新建会话后生效', auto: '自动', always: '始终', never: '从不' },
     density: { title: '会话列表密度', compact: '紧凑', comfortable: '舒适', detailed: '详细' },
+    bubble: { title: '消息气泡', desc: '你自己的消息有多透明。0 为不透明，100 时只保留边框。' },
     backdrop: { title: '聊天背景', desc: '对话后方那张淡淡的雕像图片', off: '关', on: '开' },
     translucency: {
       title: '窗口透明', clear: '透明', glass: '玻璃',
@@ -110,6 +112,7 @@ export const LOCALES = {
     },
     tabstrip: { title: '分頁列', desc: '切換/新增後生效', auto: '自動', always: '一律', never: '永不' },
     density: { title: '工作階段列表密度', compact: '緊湊', comfortable: '舒適', detailed: '詳細' },
+    bubble: { title: '訊息氣泡', desc: '你自己的訊息有多透明。0 為不透明，100 時只保留邊框。' },
     backdrop: { title: '聊天背景', desc: '對話後方那張淡淡的雕像圖片', off: '關閉', on: '開啟' },
     translucency: {
       title: '視窗透明', clear: '透明', glass: '玻璃',
