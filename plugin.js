@@ -501,6 +501,29 @@ function stopIntroObserver() {
 }
 
 function applyIntroMode(mode) {
+  // 官方 atom 通道（优先）：直接驱动 $introSplash（官方订阅链：设置页 UI/React
+  // 渲染/落盘全同步）。必须先记账再 set——atom.set 会经官方 persistBoolean 落盘
+  // 触发 setItem 钩子，后记账会被误判为外部改动。
+  const introAtom = officialStores && officialStores.introSplash
+  if (introAtom) {
+    try {
+      introNativeLastWritten = mode === 'off' ? 'false' : 'true'
+      introAtom.set(mode !== 'off')
+      if (mode === 'custom') {
+        const headline = ctxRef ? String(ctxRef.storage.get(INTRO_HEADLINE_KEY, '')).trim() : ''
+        const tagline = ctxRef ? String(ctxRef.storage.get(INTRO_TAGLINE_KEY, '')).trim() : ''
+        introWrite(headline, tagline)   // 当前已在渲染的 intro 立即替换
+        startIntroObserver()            // 之后新渲染 / 被写回的交给 observer
+      } else {
+        stopIntroObserver()
+        introRestore()
+      }
+      return
+    } catch {
+      // atom 调用失败 → 落入下方 CSS 兜底路径
+    }
+  }
+  // ── 兜底路径（atom 未识别/抛错）：CSS 注入隐藏 + 程序化点击同步官方设置页 ──
   let style = document.getElementById(INTRO_STYLE_ID)
   if (mode === 'off') {
     if (!style) {
@@ -523,7 +546,8 @@ function applyIntroMode(mode) {
     introRestore()
   }
 
-  // 原生键落盘：原生/自定义 = 开；关闭 = 关。与设置页外观开关语义一一对应。
+  // 原生键落盘：原生/自定义 = 开；关闭 = 关。先记账再写键，避免钩子误判。
+  introNativeLastWritten = mode === 'off' ? 'false' : 'true'
   writeIntroNative(mode === 'off' ? 'false' : 'true')
   // 设置页开关若正开着，程序化点击对齐（走原生 onCheckedChange，atom+滑块真实更新）
   syncIntroSettingSwitch(mode)
@@ -722,6 +746,24 @@ async function loadOfficialStores() {
           if (bdIdx >= 0) {
             officialStores.backdrop = foundBoolAtoms[bdIdx]
             console.info('[appearance-hub] ✅ backdrop atom 已识别')
+          }
+        }
+        // 识别 $introSplash atom：验证标准 = 翻转后 INTRO_NATIVE_KEY 键值变化
+        // （比较前后值而非硬编码 false→true，atom 初值为 false 时也能识别）。
+        // 与 backdrop 同一批 boolean atom、同一探测窗口（钩子已卸载/闪隐已挂）。
+        if (foundBoolAtoms && !officialStores.introSplash) {
+          let introIdx = -1
+          for (let ii = 0; ii < foundBoolAtoms.length; ii++) {
+            const cur = foundBoolAtoms[ii].get()
+            const before = localStorage.getItem(INTRO_NATIVE_KEY)
+            foundBoolAtoms[ii].set(!cur)
+            const flipped = localStorage.getItem(INTRO_NATIVE_KEY) !== before
+            foundBoolAtoms[ii].set(cur)
+            if (flipped) { introIdx = ii; break }
+          }
+          if (introIdx >= 0) {
+            officialStores.introSplash = foundBoolAtoms[introIdx]
+            console.info('[appearance-hub] ✅ intro-splash atom 已识别')
           }
         }
         // 恢复开场标识可见性 + 重装 setItem 钩子
