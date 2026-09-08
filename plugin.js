@@ -1886,17 +1886,25 @@ export default {
       if (ctx.storage.get(PAPER_KEY, true)) injectPaper()
       if (ctx.storage.get(FONT_KEY, true)) applyFont()
       injectBinshaoTheme()
-      // 开场标识：先与原生键对账（设置页关过 → 插件跟到关闭档），再按档位恢复注入；
+      // 开场标识：先与原生键对账，再按最终状态恢复注入；
       // 挂 setItem 钩子后，设置页开关改动即时推送过来（与缩放 onChanged 同款推送模型）
       try {
         const nativeVal = localStorage.getItem(INTRO_NATIVE_KEY)
         if (nativeVal != null) introNativeLastWritten = nativeVal
-        if (nativeVal === 'false') ctx.storage.set(INTRO_MODE_KEY, 'off')
-        else if (nativeVal === 'true' && ctx.storage.get(INTRO_MODE_KEY, 'native') === 'off') {
+        // 'off' 不作为持久档位（开/关由原生键承载）：历史遗留的 off 存档还原为
+        // native，native/custom 存档必须保留——否则 hub 关闭后重启，「开」无从恢复原档位
+        if (ctx.storage.get(INTRO_MODE_KEY, 'native') === 'off') {
           ctx.storage.set(INTRO_MODE_KEY, 'native')
         }
       } catch {}
-      applyIntroMode(ctx.storage.get(INTRO_MODE_KEY, 'native'))
+      applyIntroMode(
+        (() => {
+          try {
+            if (localStorage.getItem(INTRO_NATIVE_KEY) === 'false') return 'off'
+          } catch {}
+          return ctx.storage.get(INTRO_MODE_KEY, 'native') === 'custom' ? 'custom' : 'native'
+        })()
+      )
       installIntroStorageHook()
       // 界面缩放走原生机制（window.hermesDesktop.zoom）。
       // 挂模块级常驻监听：与弹窗开关无关，保证 Settings / View 菜单 / Cmd± 改缩放时
