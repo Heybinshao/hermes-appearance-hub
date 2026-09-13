@@ -2002,19 +2002,18 @@ function AppearancePanel() {
       jsxs('div', {
         className: 'flex flex-row',
         children: [
-          // 左列：主题 → 字体 → 纸纹 → 标签栏 → 密度 → 聊天背景（pr 内联——宿主未编译 .pr-3，曾致双栏不对称）
+          // 左列：主题 → 标签栏 → 密度 → 聊天背景 → 行为五件套（pr 内联——宿主未编译 .pr-3）
           jsxs('div', {
             className: 'flex min-w-0 flex-1 flex-col',
             style: { paddingRight: '12px' },
-            children: [secTheme, secFont, secPaper, secTabStrip, secDensity, secBackdrop]
+            children: [secTheme, secTabStrip, secDensity, secBackdrop,
+                      secToolView, secReasoning, secEmbeds, secPopout, secAppActions]
           }),
-          // 右列：消息气泡 → 窗口透明 → 开场标识 → 对话行为五件套（pl 内联，与左列对称；
-          // 列平衡在 B 排布轮统一调整）
+          // 右列：霞鹜文楷 → 纸纹模拟 → 消息气泡 → 窗口透明 → 开场标识（pl 内联，与左列对称）
           jsxs('div', {
             className: 'flex min-w-0 flex-1 flex-col border-l border-(--ui-stroke-secondary)',
             style: { paddingLeft: '12px' },
-            children: [secBubble, secTranslucency, secIntro, secToolView, secReasoning,
-                      secEmbeds, secPopout, secAppActions]
+            children: [secFont, secPaper, secBubble, secTranslucency, secIntro]
           })
         ]
       }),
