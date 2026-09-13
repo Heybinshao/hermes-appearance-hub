@@ -2085,7 +2085,7 @@ function AppearancePanel() {
 export default {
   id: ID,
   name: 'Hermes Appearance Hub',
-  description: '外观整合面板：纸纹 + 霞鹜文楷字体 + 原生界面缩放，状态栏一键开关。',
+  description: '外观整合浮窗：双栏面板 · 悬停即见简介 · 12 主题/纸纹模拟/霞鹜文楷/窗口透明/开场标识/对话行为，状态栏一键设置。',
   register(ctx) {
     try {
       ctxRef = ctx
