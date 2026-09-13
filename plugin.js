@@ -53,6 +53,14 @@ export const LOCALES = {
       native: 'Native copy', custom: 'Custom',
       headlinePlaceholder: 'Wordmark, e.g. BINSHAO', taglinePlaceholder: 'Prompt (leave empty to follow native random copy)'
     },
+    behavior: {
+      title: 'Chat Behavior',
+      toolView: 'Tool Call Display', toolViewDesc: 'Product hides raw tool payloads; Technical shows full input/output.', product: 'Product', technical: 'Technical',
+      reasoning: 'Collapse Thinking by Default', reasoningDesc: 'Keep streamed reasoning available without expanding it until you open it.',
+      embeds: 'Inline Embeds', embedsDesc: 'Rich previews from third-party sites (YouTube, X, …). Ask shows a placeholder; Always auto-loads; Off keeps plain links.', ask: 'Ask', always: 'Always', offEmbed: 'Off',
+      popout: 'Floating Composer', popoutDesc: 'Allow dragging the composer out of its dock. Off locks it at the bottom.',
+      appActions: 'App Actions', appActionsDesc: 'Where Settings, Layout, and HUD sit in the titlebar. Right leaves room for tabs.', left: 'Left', right: 'Right'
+    },
     zoom: { title: 'UI Scale', desc: 'Native scaling · synced with Settings/View menu' },
     footer: { tip: 'Changes apply instantly · persist across restarts' },
     notify: { ready: 'Appearance Hub ready — use the Appearance toggle in the status bar', failed: 'Appearance Hub injection failed: ' }
@@ -89,6 +97,14 @@ export const LOCALES = {
       native: '原生文案', custom: '自定义',
       headlinePlaceholder: '字标，如 BINSHAO', taglinePlaceholder: '提示语（留空跟随原生随机文案）'
     },
+    behavior: {
+      title: '对话行为',
+      toolView: '工具调用显示', toolViewDesc: '产品模式隐藏原始工具数据；技术模式显示完整输入/输出。', product: '产品', technical: '技术',
+      reasoning: '默认折叠推理过程', reasoningDesc: '保留流式推理内容，但在你打开前保持折叠。',
+      embeds: '内嵌预览', embedsDesc: '富预览会从第三方网站（YouTube、X 等）加载。询问显示占位符；总是自动加载；关闭保留纯链接。', ask: '询问', always: '总是', offEmbed: '关闭',
+      popout: '悬浮输入框', popoutDesc: '允许将输入框拖出底部停靠区。关闭后锁定在底部。',
+      appActions: '应用操作', appActionsDesc: '设置、布局和 HUD 放在标题栏左侧还是右侧。选右侧可给标签留出空间。', left: '左侧', right: '右侧'
+    },
     zoom: { title: '界面缩放', desc: '原生缩放 · 与设置/View菜单同步' },
     footer: { tip: '修改即时生效 · 重启后保留' },
     notify: { ready: '外观 Hub 已就绪 — 状态栏「外观」开关', failed: '外观 Hub 注入失败: ' }
@@ -124,6 +140,14 @@ export const LOCALES = {
       title: '開場標識', desc: '空白對話中顯示的字標和提示語', off: '關閉', on: '開啟',
       native: '原生文案', custom: '自訂',
       headlinePlaceholder: '字標，例如 BINSHAO', taglinePlaceholder: '提示語（留空跟隨原生隨機文案）'
+    },
+    behavior: {
+      title: '對話行為',
+      toolView: '工具呼叫顯示', toolViewDesc: '產品模式會隱藏原始工具 payload；技術模式會顯示完整輸入/輸出。', product: '產品', technical: '技術',
+      reasoning: '預設摺疊推理過程', reasoningDesc: '保留串流推理內容，但在您開啟前維持摺疊。',
+      embeds: '內嵌預覽', embedsDesc: '富預覽會從第三方網站（YouTube、X 等）載入。詢問顯示佔位符；總是自動載入；關閉保留純連結。', ask: '詢問', always: '總是', offEmbed: '關閉',
+      popout: '懸浮輸入框', popoutDesc: '允許將輸入框拖出底部停靠區。關閉後鎖定在底部。',
+      appActions: '應用操作', appActionsDesc: '設定、版面與 HUD 放在標題列左側或右側。選右側可把左側留給分頁。', left: '左側', right: '右側'
     },
     zoom: { title: '介面縮放', desc: '原生縮放 · 與設定/檢視選單同步' },
     footer: { tip: '修改即時生效 · 重啟後保留' },
@@ -202,6 +226,30 @@ const BACKDROP_KEY = 'hermes.desktop.backdrop.v1'
 // 根节点 CSS 变量 + 同键持久化。0=不透明(默认，移除变量)，v>0 保留 (100-v)% 填充。
 const USER_BUBBLE_KEY = 'hermes.desktop.user-bubble-transparency.v1'
 
+// ── 对话行为五件套（官方存储键，语义以官方源码为准）────────────────
+// toolView.technical / reasoning.collapsedByDefault / composerPopout.gesturesEnabled
+//   = boolean 键（'true'/'false'）；embed-mode = 'ask'|'always'|'off'（默认 ask）；
+//   titlebarAppActions = 'left'|'right'（默认 right）。
+const TOOL_VIEW_KEY = 'hermes.desktop.toolView.technical'
+const REASONING_KEY = 'hermes.desktop.reasoning.collapsedByDefault'
+const EMBED_MODE_KEY = 'hermes.desktop.embed-mode'
+const POPOUT_KEY = 'hermes.desktop.composerPopout.gesturesEnabled'
+const APP_ACTIONS_KEY = 'hermes.desktop.titlebarAppActions'
+
+function readBoolKey(key, fallback) {
+  try {
+    const v = localStorage.getItem(key)
+    return v === 'true' ? true : v === 'false' ? false : fallback
+  } catch { return fallback }
+}
+
+function writeBoolKey(key, on) {
+  try {
+    localStorage.setItem(key, String(on))
+    window.dispatchEvent(new StorageEvent('storage', { key }))
+  } catch {}
+}
+
 function clampBubble(value) {
   const n = Math.round(Number(value))
   return Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 0
@@ -245,6 +293,35 @@ const ControlRow = ({ label, children }) =>
         children: label
       }),
       jsx('div', { className: 'min-w-0 flex-1', children })
+    ]
+  })
+
+// 行为开关行（工具调用显示/折叠推理/内嵌预览/悬浮输入框/应用操作共用）：
+// 无描述保持紧凑，行结构与密度行同构；stacked=en 纵向通栏。
+// 必须模块级定义——放组件体内每次渲染新引用，React 卸载重挂子树。
+const BehaviorRow = ({ iconEl, title, options, value, onChange, stacked }) =>
+  jsxs('div', {
+    className: stacked
+      ? 'flex flex-col gap-1.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)'
+      : 'flex items-center gap-2.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
+    children: [
+      jsxs('div', {
+        className: 'flex min-w-0 items-center gap-2.5',
+        children: [
+          jsx('span', {
+            className: 'flex size-6 shrink-0 items-center justify-center',
+            children: iconEl
+          }),
+          jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: title })
+        ]
+      }),
+      jsx(SegmentedControl, {
+        options,
+        value,
+        onChange,
+        className: stacked ? 'w-full' : 'ml-auto',
+        style: stacked ? undefined : { width: '150px', flexShrink: 0 }
+      })
     ]
   })
 
@@ -725,9 +802,10 @@ async function loadOfficialStores() {
     const mainSrc = await (await fetch(mainUrl)).text()
     // density chunk
     const m1 = mainSrc.match(/([\w-]*session-list-density-[A-Za-z0-9_-]+\.js)/)
-    if (m1 && !officialStores.density) {
+    if (m1 && !officialStores.probed) {
       try {
         const mod = await import(/* @vite-ignore */ new URL('./' + m1[1], base).href)
+        officialStores.probed = true   // 探测完整执行过一次才标记（fetch/import 失败保留下次重试机会）
         for (const k of Object.keys(mod)) {
           const v = mod[k]
           if (!v || typeof v.get !== 'function' || typeof v.set !== 'function') continue
@@ -736,16 +814,24 @@ async function loadOfficialStores() {
             if (!officialStores.density) officialStores.density = v
             continue
           }
-          // 收集 boolean atom（backdrop / intro-splash / 命令面板开关等）
+          // 字符串枚举 atom：值域互斥即身份（toolView/embedMode/appActions）。
+          // tabStrip('auto'|'always'|'never') 不在此 chunk，无 'always' 撞值风险。
+          if (cur === 'product' || cur === 'technical') { officialStores.toolViewMode ??= v; continue }
+          if (cur === 'ask' || cur === 'always' || cur === 'off') { officialStores.embedMode ??= v; continue }
+          if (cur === 'left' || cur === 'right') { officialStores.appActions ??= v; continue }
+          // 收集 boolean atom（backdrop / intro-splash / reasoning / 命令面板开关等）
           if (typeof cur === 'boolean') {
             if (!foundBoolAtoms) foundBoolAtoms = []
             foundBoolAtoms.push(v)
           }
         }
-        // 统一键验证：找出写 BACKDROP_KEY 的 boolean atom（即 $backdrop），
-        // 探测后全部还原。与密度同款机制。
-        // 探测期间临时隐藏开场标识 DOM 防止视觉闪烁，
-        // 并抑制 setItem 钩子（防止 intro-splash atom 被翻转时误移除自定义注入层）
+        // ── boolean atom 全量翻转扫描：一次遍历认领 backdrop / intro-splash /
+        // reasoning 三个带 persist 订阅的 atom（翻转引发目标键写入即命中），
+        // 同时记录「翻转不引发任何 localStorage 写入」的 atom——
+        // $composerPopoutGesturesEnabled 无 persist 订阅，翻转零写入，是唯一
+        // 可靠区分特征（reactions/tips 等虽有订阅但写自己的键，计入写入）。
+        // 探测期间临时隐藏开场标识 DOM 防闪烁，并抑制 setItem 钩子
+        // （防止 intro-splash atom 被翻转时误移除自定义注入层）。
         const introEl = document.querySelector('[data-slot="aui_intro"]')
         const prevVis = introEl ? introEl.style.visibility : ''
         if (introEl) introEl.style.visibility = 'hidden'
@@ -753,38 +839,54 @@ async function loadOfficialStores() {
           introUninstallHook()
           introUninstallHook = null
         }
-        if (foundBoolAtoms && foundBoolAtoms.length >= 2) {
+        if (foundBoolAtoms && foundBoolAtoms.length) {
           const snapshot = foundBoolAtoms.map(a => a.get())
-          const beforeBd = localStorage.getItem(BACKDROP_KEY)
-          let bdIdx = -1
-          for (let bi = 0; bi < foundBoolAtoms.length; bi++) {
-            foundBoolAtoms[bi].set(!snapshot[bi])
-            if (localStorage.getItem(BACKDROP_KEY) !== beforeBd) { bdIdx = bi }
-            foundBoolAtoms[bi].set(snapshot[bi])
-            if (bdIdx >= 0) break
+          let writeCount = 0
+          const rawSI = Storage.prototype.setItem
+          Storage.prototype.setItem = function (...args) { writeCount++; return rawSI.apply(this, args) }
+          const zeroWrite = []
+          const watchKeys = [
+            ['backdrop', BACKDROP_KEY],
+            ['introSplash', INTRO_NATIVE_KEY],
+            ['reasoningCollapsed', REASONING_KEY]
+          ]
+          const baseline = Object.fromEntries(watchKeys.map(([, k]) => [k, localStorage.getItem(k)]))
+          try {
+            for (let bi = 0; bi < foundBoolAtoms.length; bi++) {
+              const a = foundBoolAtoms[bi]
+              a.set(!snapshot[bi])
+              const wrote = writeCount
+              let hitKey = null
+              for (const [name, k] of watchKeys) {
+                const now = localStorage.getItem(k)
+                if (now !== baseline[k]) {
+                  baseline[k] = now        // 滚动基线：已被认领的 atom 不再干扰后续比对
+                  if (!officialStores[name]) hitKey = name
+                }
+              }
+              a.set(snapshot[bi])   // 同步还原（persist 订阅随之写回原值），React 拿不到中间帧
+              if (hitKey) officialStores[hitKey] = a
+              else if (wrote === 0) zeroWrite.push(bi)
+            }
+          } finally {
+            Storage.prototype.setItem = rawSI
           }
-          if (bdIdx >= 0) {
-            officialStores.backdrop = foundBoolAtoms[bdIdx]
-            console.info('[appearance-hub] ✅ backdrop atom 已识别')
+          // popout gestures：零写入候选中初始值为 true 者；唯一命中才认领，
+          // 0 个或多个 = 放弃（面板退回 localStorage 直写，重启后生效）
+          if (!officialStores.popoutGestures) {
+            const cands = zeroWrite.filter((i) => snapshot[i] === true)
+            if (cands.length === 1) officialStores.popoutGestures = foundBoolAtoms[cands[0]]
           }
-        }
-        // 识别 $introSplash atom：验证标准 = 翻转后 INTRO_NATIVE_KEY 键值变化
-        // （比较前后值而非硬编码 false→true，atom 初值为 false 时也能识别）。
-        // 与 backdrop 同一批 boolean atom、同一探测窗口（钩子已卸载/闪隐已挂）。
-        if (foundBoolAtoms && !officialStores.introSplash) {
-          let introIdx = -1
-          for (let ii = 0; ii < foundBoolAtoms.length; ii++) {
-            const cur = foundBoolAtoms[ii].get()
-            const before = localStorage.getItem(INTRO_NATIVE_KEY)
-            foundBoolAtoms[ii].set(!cur)
-            const flipped = localStorage.getItem(INTRO_NATIVE_KEY) !== before
-            foundBoolAtoms[ii].set(cur)
-            if (flipped) { introIdx = ii; break }
+          for (const key of ['backdrop', 'introSplash', 'reasoningCollapsed', 'popoutGestures']) {
+            if (officialStores[key]) {
+              if (!officialStores._recognized) officialStores._recognized = []
+              officialStores._recognized.push(key)
+            }
           }
-          if (introIdx >= 0) {
-            officialStores.introSplash = foundBoolAtoms[introIdx]
-            console.info('[appearance-hub] ✅ intro-splash atom 已识别')
-          }
+          // 探针走 error 级——renderer console.info 不落盘，只有 error 可事后 grep
+          console.error('[appearance-hub] probe done: string-atoms=[' +
+            ['toolViewMode', 'embedMode', 'appActions'].filter((k) => officialStores[k]).join(',') +
+            '] bool-atoms=[' + (officialStores._recognized || []).join(',') + ']')
         }
         // 恢复开场标识可见性 + 重装 setItem 钩子
         if (introEl) introEl.style.visibility = prevVis
@@ -1101,6 +1203,60 @@ function AppearancePanel() {
   const [tabStrip, setTabStripState] = useState(() =>
     readSimpleKey(TABSTRIP_KEY, 'auto', ['auto', 'always', 'never']))
   const [backdrop, setBackdropState] = useState(() => readBackdrop())
+  // ── 对话行为五件套：状态读官方键；写入 atom 优先、localStorage 直写兜底 ──
+  const [toolViewMode, setToolViewModeState] = useState(() =>
+    readBoolKey(TOOL_VIEW_KEY, false) ? 'technical' : 'product')
+  const [reasoningCollapsed, setReasoningState] = useState(() => readBoolKey(REASONING_KEY, false))
+  const [embedMode, setEmbedModeState] = useState(() =>
+    readSimpleKey(EMBED_MODE_KEY, 'ask', ['ask', 'always', 'off']))
+  const [popoutEnabled, setPopoutState] = useState(() => readBoolKey(POPOUT_KEY, true))
+  const [appActionsSide, setAppActionsState] = useState(() =>
+    readSimpleKey(APP_ACTIONS_KEY, 'right', ['left', 'right']))
+
+  const changeToolViewMode = (id) => {
+    setToolViewModeState(id)
+    loadOfficialStores().then((s) => {
+      if (s?.toolViewMode) s.toolViewMode.set(id)
+      else writeBoolKey(TOOL_VIEW_KEY, id === 'technical')   // 直写 = 重启后生效
+    })
+    haptic('tap')
+  }
+  const changeReasoning = (on) => {
+    setReasoningState(on)
+    loadOfficialStores().then((s) => {
+      if (s?.reasoningCollapsed) s.reasoningCollapsed.set(on)
+      else writeBoolKey(REASONING_KEY, on)
+    })
+    haptic('tap')
+  }
+  const changeEmbedMode = (id) => {
+    setEmbedModeState(id)
+    loadOfficialStores().then((s) => {
+      // embedMode 是 persistentAtom——set 即写穿官方键 + 全窗口即时生效
+      if (s?.embedMode) s.embedMode.set(id)
+      else writeSimpleKey(EMBED_MODE_KEY, id)
+    })
+    haptic('tap')
+  }
+  const changePopout = (on) => {
+    setPopoutState(on)
+    loadOfficialStores().then((s) => {
+      // ⚠️ 该 atom 无 persist 订阅（官方靠导出函数落盘+收起浮窗副作用）。
+      // 只 set atom = 即时改手势开关但不落盘、不收起已浮出的输入框；
+      // 认领会在识别阶段核对「翻转零写入」特征，认领失败退回直写=重启生效。
+      if (s?.popoutGestures) s.popoutGestures.set(on)
+      else writeBoolKey(POPOUT_KEY, on)
+    })
+    haptic('tap')
+  }
+  const changeAppActions = (id) => {
+    setAppActionsState(id)
+    loadOfficialStores().then((s) => {
+      if (s?.appActions) s.appActions.set(id)
+      else writeSimpleKey(APP_ACTIONS_KEY, id)
+    })
+    haptic('tap')
+  }
   const [translucencyMode, setTranslucencyModeState] = useState(() => {
     try {
       const raw = JSON.parse(localStorage.getItem(TRANSLUCENCY_KEY) || 'null')
@@ -1819,59 +1975,87 @@ function AppearancePanel() {
             })
         ]
       }),
-      // 界面缩放
+      // ── 对话行为五件套（搬自官方设置页外观段，同键直驱官方状态）──
+      jsx(BehaviorRow, {
+        iconEl: jsx(icons.Wrench, { className: 'size-3.5 text-(--ui-text-secondary)' }),
+        title: t('behavior.toolView'),
+        options: [
+          { id: 'product', label: t('behavior.product') },
+          { id: 'technical', label: t('behavior.technical') }
+        ],
+        value: toolViewMode,
+        onChange: changeToolViewMode,
+        stacked: stackedLayout
+      }),
+      jsx(BehaviorRow, {
+        iconEl: jsx(icons.Brain, { className: 'size-3.5 text-(--ui-text-secondary)' }),
+        title: t('behavior.reasoning'),
+        options: [
+          { id: 'off', label: t('intro.off') },
+          { id: 'on', label: t('intro.on') }
+        ],
+        value: reasoningCollapsed ? 'on' : 'off',
+        onChange: (id) => changeReasoning(id === 'on'),
+        stacked: stackedLayout
+      }),
+      jsx(BehaviorRow, {
+        iconEl: jsx(icons.ExternalLink, { className: 'size-3.5 text-(--ui-text-secondary)' }),
+        title: t('behavior.embeds'),
+        options: [
+          { id: 'ask', label: t('behavior.ask') },
+          { id: 'always', label: t('behavior.always') },
+          { id: 'off', label: t('behavior.offEmbed') }
+        ],
+        value: embedMode,
+        onChange: changeEmbedMode,
+        stacked: stackedLayout
+      }),
+      jsx(BehaviorRow, {
+        iconEl: jsx(icons.PanelBottom, { className: 'size-3.5 text-(--ui-text-secondary)' }),
+        title: t('behavior.popout'),
+        options: [
+          { id: 'off', label: t('intro.off') },
+          { id: 'on', label: t('intro.on') }
+        ],
+        value: popoutEnabled ? 'on' : 'off',
+        onChange: (id) => changePopout(id === 'on'),
+        stacked: stackedLayout
+      }),
+      jsx(BehaviorRow, {
+        iconEl: jsx(icons.LayoutDashboard, { className: 'size-3.5 text-(--ui-text-secondary)' }),
+        title: t('behavior.appActions'),
+        options: [
+          { id: 'left', label: t('behavior.left') },
+          { id: 'right', label: t('behavior.right') }
+        ],
+        value: appActionsSide,
+        onChange: changeAppActions,
+        stacked: stackedLayout
+      }),
+
+      // 底部提示 + 界面缩放控件（缩放去区块化，落位原单/双栏开关位置）
       jsxs('div', {
-        className: 'flex flex-col gap-1.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
+        className: 'mt-1 flex items-center gap-2 border-t border-(--ui-stroke-secondary) px-2 pt-2',
         children: [
-          jsxs('div', {
-            className: 'flex items-center gap-2.5',
-            children: [
-              jsx('span', {
-                className: 'flex size-6 shrink-0 items-center justify-center',
-                children: jsx('svg', {
-                  viewBox: '0 0 16 16',
-                  fill: 'none',
-                  stroke: 'currentColor',
-                  strokeWidth: 1.3,
-                  strokeLinecap: 'round',
-                  strokeLinejoin: 'round',
-                  className: 'size-3.5 text-(--ui-text-secondary)',
-                  children: jsx('path', { d: 'M2.5 5.5V2.5h3M13.5 5.5V2.5h-3M2.5 10.5v3h3M13.5 10.5v3h-3' })
-                })
-              }),
-              jsxs('div', {
-                className: 'min-w-0 flex-1',
-                children: [
-                  jsx('div', { className: 'text-[0.75rem] leading-tight', children: t('zoom.title') }),
-                  jsx('div', {
-                    className: 'mt-0.5 text-[0.6875rem] leading-tight text-(--ui-text-tertiary)',
-                    children: t('zoom.desc')
-                  })
-                ]
-              })
-            ]
+          jsx('div', {
+            className: 'min-w-0 flex-1 text-[0.625rem] text-(--ui-text-quaternary)',
+            children: t('footer.tip')
           }),
           jsx(SegmentedControl, {
             options: ZOOM_OPTIONS,
             value: zoom,
             onChange: setZoom,
-            className: 'w-full'
+            className: 'shrink-0 scale-90',
+            'aria-label': t('zoom.title')
           })
         ]
-      }),
-
-      // 底部提示
-      jsx('div', {
-        className: 'mt-1 flex items-center gap-2 border-t border-(--ui-stroke-secondary) px-2 pt-2',
-        children: jsx('div', {
-          className: 'min-w-0 flex-1 text-[0.625rem] text-(--ui-text-quaternary)',
-          children: t('footer.tip')
-        })
       })
     ]
-  // 区块索引：0=标题 1=主题 2=字体 3=纸纹 4=标签栏 5=密度 6=消息气泡 7=聊天背景 8=窗口透明 9=开场标识 10=缩放 11=底部提示
+  // 区块索引：0=标题 1=主题 2=字体 3=纸纹 4=标签栏 5=密度 6=消息气泡 7=聊天背景 8=窗口透明
+  //          9=开场标识 10-14=行为五件套（工具/推理/内嵌/悬浮框/应用操作） 15=底部提示+缩放
   const [secTitle, secTheme, secFont, secPaper, secTabStrip, secDensity, secBubble, secBackdrop,
-         secTranslucency, secIntro, secZoom, secFooter] = secChildren
+         secTranslucency, secIntro, secToolView, secReasoning, secEmbeds, secPopout,
+         secAppActions, secFooter] = secChildren
 
   // 双栏（唯一布局）：标题通栏 + 左右两列 + 底部提示
   return jsxs('div', {
@@ -1888,11 +2072,13 @@ function AppearancePanel() {
             style: { paddingRight: '12px' },
             children: [secTheme, secFont, secPaper, secTabStrip, secDensity, secBackdrop]
           }),
-          // 右列：消息气泡 → 窗口透明 → 开场标识 → 缩放（pl 内联，与左列对称）
+          // 右列：消息气泡 → 窗口透明 → 开场标识 → 对话行为五件套（pl 内联，与左列对称；
+          // 列平衡在 B 排布轮统一调整）
           jsxs('div', {
             className: 'flex min-w-0 flex-1 flex-col border-l border-(--ui-stroke-secondary)',
             style: { paddingLeft: '12px' },
-            children: [secBubble, secTranslucency, secIntro, secZoom]
+            children: [secBubble, secTranslucency, secIntro, secToolView, secReasoning,
+                      secEmbeds, secPopout, secAppActions]
           })
         ]
       }),
