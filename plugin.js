@@ -2020,12 +2020,13 @@ function AppearancePanel() {
       jsxs('div', {
         className: 'flex flex-row',
         children: [
-          // 左列：主题 → 标签栏 → 密度 → 聊天背景 → 行为五件套（pr 内联——宿主未编译 .pr-3）
+          // 左列：主题 → 聊天背景 → 行为五件套 → 标签栏 → 密度（pr 内联——宿主未编译 .pr-3）
           jsxs('div', {
             className: 'flex min-w-0 flex-1 flex-col',
             style: { paddingRight: '12px' },
-            children: [secTheme, secTabStrip, secDensity, secBackdrop,
-                      secToolView, secReasoning, secEmbeds, secPopout, secAppActions]
+            children: [secTheme, secBackdrop,
+                      secToolView, secReasoning, secEmbeds, secPopout, secAppActions,
+                      secTabStrip, secDensity]
           }),
           // 右列：霞鹜文楷 → 纸纹模拟 → 开场标识 → 消息气泡 → 窗口透明（pl 内联，与左列对称）
           jsxs('div', {
