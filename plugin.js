@@ -2009,11 +2009,11 @@ function AppearancePanel() {
             children: [secTheme, secTabStrip, secDensity, secBackdrop,
                       secToolView, secReasoning, secEmbeds, secPopout, secAppActions]
           }),
-          // 右列：霞鹜文楷 → 纸纹模拟 → 消息气泡 → 窗口透明 → 开场标识（pl 内联，与左列对称）
+          // 右列：霞鹜文楷 → 纸纹模拟 → 开场标识 → 消息气泡 → 窗口透明（pl 内联，与左列对称）
           jsxs('div', {
             className: 'flex min-w-0 flex-1 flex-col border-l border-(--ui-stroke-secondary)',
             style: { paddingLeft: '12px' },
-            children: [secFont, secPaper, secBubble, secTranslucency, secIntro]
+            children: [secFont, secPaper, secIntro, secBubble, secTranslucency]
           })
         ]
       }),
