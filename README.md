@@ -57,12 +57,13 @@
 
 ![暗色启用](assets/screenshot-dark-after.png)
 
-## 依赖字体
+## 字体依赖（灵魂注入！！！）
 
 全局字体功能使用 **霞鹜文楷（LXGW WenKai）** 与 **霞鹜文楷 Mono（LXGW WenKai Mono）**：
 
-- 字体仓库：[lxgw/LxgwWenKai](https://github.com/lxgw/LxgwWenKai)（MIT License，开源可商用）
+- 字体仓库：[lxgw/LxgwWenKai](https://github.com/lxgw/LxgwWenKai)（SIL Open Font License 1.1，开源可商用）
 - **需装到系统**：插件只用本机已装的系统字体，不走 CDN。没装则回退系统默认字体
+- 一款字体撑起整个界面的气质——向字体作者 **lxgw（霞鹜）** 致敬：没有这份优秀的开源中文字体，就没有这个插件的灵魂
 
 ## 安装
 
