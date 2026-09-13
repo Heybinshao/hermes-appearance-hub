@@ -13,7 +13,7 @@
  *       状态栏入口用 declarative data 通道（variant:'menu' + menuContent），
  *       不自定义 Popover —— 与核心状态栏工具同一条渲染路径，最稳。
  */
-import { haptic, host, icons, Switch, SegmentedControl, Input, Textarea, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, usePluginI18n, useI18n } from '@hermes/plugin-sdk'
+import { haptic, host, icons, SegmentedControl, Input, Textarea, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, usePluginI18n, useI18n } from '@hermes/plugin-sdk'
 import { useState, useEffect, useRef } from 'react'
 import { jsx, jsxs } from 'react/jsx-runtime'
 
@@ -26,8 +26,10 @@ export const LOCALES = {
     language: { title: 'Language' },
     theme: {
       title: 'Appearance',
+      titleDesc: 'Pick a fixed mode or let Hermes follow your system setting.',
       modeLight: 'Light', modeDark: 'Dark', modeSystem: 'System',
-      gridTitle: 'Theme'
+      gridTitle: 'Theme',
+      gridDesc: 'Desktop palettes only. The selected mode is applied on top.'
     },
     font: { title: 'Font', desc: 'UI font · LXGW WenKai' },
     paper: {
@@ -36,12 +38,13 @@ export const LOCALES = {
       recipeLightSet: { light: 'Light', subtle: 'Subtle', classic: 'Classic', top: 'Topped' },
       recipeDarkSet: { light: 'Light', subtle: 'Subtle', classic: 'Classic', ground: 'Grounded' }
     },
-    tabstrip: { title: 'Tab Strip', desc: 'Applies after switching/creating a session', auto: 'Auto', always: 'Always', never: 'Never' },
-    density: { title: 'Session List Density', compact: 'Compact', comfortable: 'Comfortable', detailed: 'Detailed' },
+    tabstrip: { title: 'Tab Strip', desc: 'Show tabs above a zone. Auto hides them when a zone holds a single pane.', auto: 'Auto', always: 'Always', never: 'Never' },
+    density: { title: 'Session List Density', desc: 'Choose how much context appears beneath session titles in the sidebar.', compact: 'Compact', comfortable: 'Comfortable', detailed: 'Detailed' },
     bubble: { title: 'Message Bubbles', desc: 'How transparent your own messages are. 0 is solid, 100 keeps only the outline.' },
     backdrop: { title: 'Chat Backdrop', desc: 'The faint statue image behind the conversation.', off: 'Off', on: 'On' },
     translucency: {
-      title: 'Window Translucency', clear: 'Clear', glass: 'Glass',
+      title: 'Window Translucency', desc: 'See your desktop through the whole window, text and all. Tuned separately for light and dark.',
+      clear: 'Clear', glass: 'Glass',
       tint: 'Tint', intensityLabel: 'Intensity', fade: 'Fade',
       materialTitle: 'Frost',
       materials: { 'under-window': 'Deep', popover: 'Soft', titlebar: 'Bright', header: 'Glare' },
@@ -62,7 +65,7 @@ export const LOCALES = {
       appActions: 'App Actions', appActionsDesc: 'Where Settings, Layout, and HUD sit in the titlebar. Right leaves room for tabs.', left: 'Left', right: 'Right'
     },
     zoom: { title: 'UI Scale', desc: 'Native scaling · synced with Settings/View menu' },
-    footer: { tip: 'Changes apply instantly · persist across restarts' },
+    footer: { tip: 'Hover any setting for details · Changes apply instantly' },
     notify: { ready: 'Appearance Hub ready — use the Appearance toggle in the status bar', failed: 'Appearance Hub injection failed: ' }
   },
   zh: {
@@ -70,22 +73,25 @@ export const LOCALES = {
     language: { title: '语言' },
     theme: {
       title: '外观',
+      titleDesc: '选择固定模式，或让 Hermes 跟随系统设置。',
       modeLight: '明亮', modeDark: '暗色', modeSystem: '跟随系统',
-      gridTitle: '主题'
+      gridTitle: '主题',
+      gridDesc: '仅桌面端调色板。所选模式叠加其上。'
     },
-    font: { title: '字体', desc: '界面字体 · 霞鹜文楷' },
+    font: { title: '字体', desc: '界面字体 · 霞鹜文楷（需安装到系统）' },
     paper: {
       title: '纸纹', desc: '宣纸噪点层 · 随明暗自动切换',
       recipeLight: '明亮配方', recipeDark: '暗色配方',
       recipeLightSet: { light: '极轻', subtle: '微调', classic: '经典', top: '贴顶' },
       recipeDarkSet: { light: '极轻', subtle: '微调', classic: '经典', ground: '贴地' }
     },
-    tabstrip: { title: '标签栏', desc: '切换/新建会话后生效', auto: '自动', always: '始终', never: '从不' },
-    density: { title: '会话列表密度', compact: '紧凑', comfortable: '舒适', detailed: '详细' },
+    tabstrip: { title: '标签栏', desc: '在分区上方显示标签。自动模式会在分区只有一个面板时隐藏标签。', auto: '自动', always: '始终', never: '从不' },
+    density: { title: '会话列表密度', desc: '选择侧边栏会话标题下方显示的信息量。', compact: '紧凑', comfortable: '舒适', detailed: '详细' },
     bubble: { title: '消息气泡', desc: '你自己的消息有多透明。0 为不透明，100 时只保留边框。' },
     backdrop: { title: '聊天背景', desc: '对话后方那张淡淡的雕像图片', off: '关', on: '开' },
     translucency: {
-      title: '窗口透明', clear: '透明', glass: '玻璃',
+      title: '窗口透明', desc: '让整个窗口（包括文字）透出桌面。明暗模式分别调节。',
+      clear: '透明', glass: '玻璃',
       tint: '色调', intensityLabel: '强度', fade: '淡出',
       materialTitle: '磨砂质感',
       materials: { 'under-window': '深邃', popover: '柔和', titlebar: '明亮', header: '透亮' },
@@ -102,11 +108,11 @@ export const LOCALES = {
       toolView: '工具调用显示', toolViewDesc: '产品模式隐藏原始工具数据；技术模式显示完整输入/输出。', product: '产品', technical: '技术',
       reasoning: '默认折叠推理过程', reasoningDesc: '保留流式推理内容，但在你打开前保持折叠。',
       embeds: '内嵌预览', embedsDesc: '富预览会从第三方网站（YouTube、X 等）加载。询问显示占位符；总是自动加载；关闭保留纯链接。', ask: '询问', always: '总是', offEmbed: '关闭',
-      popout: '悬浮输入框', popoutDesc: '允许将输入框拖出底部停靠区。关闭后锁定在底部。',
-      appActions: '应用操作', appActionsDesc: '设置、布局和 HUD 放在标题栏左侧还是右侧。选右侧可给标签留出空间。', left: '左侧', right: '右侧'
+      popout: '悬浮输入框', popoutDesc: '允许将输入框拖出底部停靠区。关闭后，输入框会锁定在底部。',
+      appActions: '应用操作', appActionsDesc: '设置、布局和 HUD 放在标题栏左侧还是右侧。选右侧可给标签留出左边空间。', left: '左侧', right: '右侧'
     },
-    zoom: { title: '界面缩放', desc: '原生缩放 · 与设置/View菜单同步' },
-    footer: { tip: '修改即时生效 · 重启后保留' },
+    zoom: { title: '界面缩放', desc: '缩放整个应用的文字和界面，与系统设置/View 菜单同步。' },
+    footer: { tip: '悬停任一设置项查看说明 · 改动即时生效' },
     notify: { ready: '外观 Hub 已就绪 — 状态栏「外观」开关', failed: '外观 Hub 注入失败: ' }
   },
   'zh-hant': {
@@ -114,22 +120,25 @@ export const LOCALES = {
     language: { title: '語言' },
     theme: {
       title: '外觀',
+      titleDesc: '選擇固定模式，或讓 Hermes 跟隨系統設定。',
       modeLight: '明亮', modeDark: '深色', modeSystem: '跟隨系統',
-      gridTitle: '主題'
+      gridTitle: '主題',
+      gridDesc: '僅限桌面端的調色盤。所選模式會套用在其上。'
     },
-    font: { title: '字型', desc: '介面字型 · 霞鶩文楷' },
+    font: { title: '字型', desc: '介面字型 · 霞鶩文楷（需安裝到系統）' },
     paper: {
       title: '紙紋', desc: '宣紙噪點層 · 隨明暗自動切換',
       recipeLight: '明亮配方', recipeDark: '暗色配方',
       recipeLightSet: { light: '極輕', subtle: '微調', classic: '經典', top: '貼頂' },
       recipeDarkSet: { light: '極輕', subtle: '微調', classic: '經典', ground: '貼地' }
     },
-    tabstrip: { title: '分頁列', desc: '切換/新增後生效', auto: '自動', always: '一律', never: '永不' },
-    density: { title: '工作階段列表密度', compact: '緊湊', comfortable: '舒適', detailed: '詳細' },
+    tabstrip: { title: '分頁列', desc: '在分區上方顯示分頁。自動模式會在分區只有一個面板時隱藏分頁。', auto: '自動', always: '一律', never: '永不' },
+    density: { title: '工作階段列表密度', desc: '選擇側邊欄工作階段標題下方顯示的資訊量。', compact: '緊湊', comfortable: '舒適', detailed: '詳細' },
     bubble: { title: '訊息氣泡', desc: '你自己的訊息有多透明。0 為不透明，100 時只保留邊框。' },
-    backdrop: { title: '聊天背景', desc: '對話後方那張淡淡的雕像圖片', off: '關閉', on: '開啟' },
+    backdrop: { title: '聊天背景', desc: '對話後方那張淡淡的雕像圖片。', off: '關閉', on: '開啟' },
     translucency: {
-      title: '視窗透明', clear: '透明', glass: '玻璃',
+      title: '視窗透明', desc: '讓整個視窗（包括文字）透出桌面。明暗模式分別調節。',
+      clear: '透明', glass: '玻璃',
       tint: '色調', intensityLabel: '強度', fade: '淡出',
       materialTitle: '磨砂質感',
       materials: { 'under-window': '深邃', popover: '柔和', titlebar: '明亮', header: '透亮' },
@@ -137,7 +146,7 @@ export const LOCALES = {
       scopes: { window: '整個視窗', sidebar: '僅側邊欄' }
     },
     intro: {
-      title: '開場標識', desc: '空白對話中顯示的字標和提示語', off: '關閉', on: '開啟',
+      title: '開場標識', desc: '空白對話中顯示的字標和提示語。', off: '關閉', on: '開啟',
       native: '原生文案', custom: '自訂',
       headlinePlaceholder: '字標，例如 BINSHAO', taglinePlaceholder: '提示語（留空跟隨原生隨機文案）'
     },
@@ -145,12 +154,12 @@ export const LOCALES = {
       title: '對話行為',
       toolView: '工具呼叫顯示', toolViewDesc: '產品模式會隱藏原始工具 payload；技術模式會顯示完整輸入/輸出。', product: '產品', technical: '技術',
       reasoning: '預設摺疊推理過程', reasoningDesc: '保留串流推理內容，但在您開啟前維持摺疊。',
-      embeds: '內嵌預覽', embedsDesc: '富預覽會從第三方網站（YouTube、X 等）載入。詢問顯示佔位符；總是自動載入；關閉保留純連結。', ask: '詢問', always: '總是', offEmbed: '關閉',
-      popout: '懸浮輸入框', popoutDesc: '允許將輸入框拖出底部停靠區。關閉後鎖定在底部。',
+      embeds: '內嵌預覽', embedsDesc: '豐富預覽會從第三方網站（YouTube、X 等）載入。詢問會在你允許前顯示佔位符；一律會自動載入；關閉則保留純連結。', ask: '詢問', always: '一律', offEmbed: '關閉',
+      popout: '懸浮輸入框', popoutDesc: '允許將輸入框拖出底部停靠區。關閉後，輸入框會鎖定在底部。',
       appActions: '應用操作', appActionsDesc: '設定、版面與 HUD 放在標題列左側或右側。選右側可把左側留給分頁。', left: '左側', right: '右側'
     },
-    zoom: { title: '介面縮放', desc: '原生縮放 · 與設定/檢視選單同步' },
-    footer: { tip: '修改即時生效 · 重啟後保留' },
+    zoom: { title: '介面縮放', desc: '縮放整個應用程式的文字與介面，與設定/檢視選單同步。' },
+    footer: { tip: '懸停任一設定項查看說明 · 變更即時生效' },
     notify: { ready: '外觀 Hub 已就緒 — 狀態列「外觀」開關', failed: '外觀 Hub 注入失敗: ' }
   }
 }
@@ -296,24 +305,20 @@ const ControlRow = ({ label, children }) =>
     ]
   })
 
-// 行为开关行（工具调用显示/折叠推理/内嵌预览/悬浮输入框/应用操作共用）：
-// 无描述保持紧凑，行结构与密度行同构；stacked=en 纵向通栏。
+// 行为/设置行（工具调用显示/折叠推理/内嵌预览/悬浮输入框/应用操作/密度等共用）：
+// 无图标无简介——单行标题 + 右侧定宽控件；stacked=en 纵向通栏。
+// onEnter 由面板注入（hover→底部说明带联动）。
 // 必须模块级定义——放组件体内每次渲染新引用，React 卸载重挂子树。
-const BehaviorRow = ({ iconEl, title, options, value, onChange, stacked }) =>
+const BehaviorRow = ({ title, options, value, onChange, stacked, onEnter }) =>
   jsxs('div', {
+    onMouseEnter: onEnter,
     className: stacked
       ? 'flex flex-col gap-1.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)'
       : 'flex items-center gap-2.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
     children: [
-      jsxs('div', {
-        className: 'flex min-w-0 items-center gap-2.5',
-        children: [
-          jsx('span', {
-            className: 'flex size-6 shrink-0 items-center justify-center',
-            children: iconEl
-          }),
-          jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: title })
-        ]
+      jsx('div', {
+        className: 'flex min-w-0 flex-1 items-center gap-2.5',
+        children: jsx('div', { className: 'min-w-0 text-[0.75rem] leading-tight', children: title })
       }),
       jsx(SegmentedControl, {
         options,
@@ -842,20 +847,26 @@ async function loadOfficialStores() {
         if (foundBoolAtoms && foundBoolAtoms.length) {
           const snapshot = foundBoolAtoms.map(a => a.get())
           let writeCount = 0
+          const flippedKeys = []
           const rawSI = Storage.prototype.setItem
-          Storage.prototype.setItem = function (...args) { writeCount++; return rawSI.apply(this, args) }
+          Storage.prototype.setItem = function (...args) { writeCount++; flippedKeys.push(String(args[0])); return rawSI.apply(this, args) }
           const zeroWrite = []
+          const probeDetail = []
           const watchKeys = [
             ['backdrop', BACKDROP_KEY],
             ['introSplash', INTRO_NATIVE_KEY],
             ['reasoningCollapsed', REASONING_KEY]
           ]
           const baseline = Object.fromEntries(watchKeys.map(([, k]) => [k, localStorage.getItem(k)]))
+          const nextFrame = () => new Promise((r) => setTimeout(r, 0))
           try {
             for (let bi = 0; bi < foundBoolAtoms.length; bi++) {
               const a = foundBoolAtoms[bi]
+              const wroteBefore = writeCount
               a.set(!snapshot[bi])
-              const wrote = writeCount
+              await nextFrame()   // 官方 persist 有 microtask/帧级节流，等它 flush 再读键
+              const wroteKeys = flippedKeys.slice(wroteBefore)
+              const wroteZero = wroteKeys.length === 0
               let hitKey = null
               for (const [name, k] of watchKeys) {
                 const now = localStorage.getItem(k)
@@ -864,18 +875,26 @@ async function loadOfficialStores() {
                   if (!officialStores[name]) hitKey = name
                 }
               }
-              a.set(snapshot[bi])   // 同步还原（persist 订阅随之写回原值），React 拿不到中间帧
+              a.set(snapshot[bi])   // 还原（persist 随之写回原值）
+              await nextFrame()     // 等还原的写盘也 flush，避免污染下一 atom 的比对
+              probeDetail.push(snapshot[bi] + '|' + wroteKeys.join('+') + (hitKey ? '>' + hitKey : ''))
               if (hitKey) officialStores[hitKey] = a
-              else if (wrote === 0) zeroWrite.push(bi)
+              else if (wroteZero) zeroWrite.push(bi)
             }
           } finally {
             Storage.prototype.setItem = rawSI
           }
-          // popout gestures：零写入候选中初始值为 true 者；唯一命中才认领，
-          // 0 个或多个 = 放弃（面板退回 localStorage 直写，重启后生效）
+          // popout gestures：零写入候选 + 值匹配（键存在时对照键值，缺省 true）。
+          // 仅唯一命中才认领；多义/零命中 = 放弃（面板退回 localStorage 直写，重启生效）
           if (!officialStores.popoutGestures) {
-            const cands = zeroWrite.filter((i) => snapshot[i] === true)
+            let want = true
+            try { const k = localStorage.getItem(POPOUT_KEY); if (k === 'false') want = false } catch {}
+            const cands = zeroWrite.filter((i) => snapshot[i] === want)
             if (cands.length === 1) officialStores.popoutGestures = foundBoolAtoms[cands[0]]
+            // 诊断：认领失败时打印候选构成，定位是零写入 atom 过多还是过少
+            else console.error('[appearance-hub] popout claim failed: want=' + want +
+              ' zeroWrite=[' + zeroWrite.join(',') + '] boolTotal=' + snapshot.length +
+              ' detail=[' + probeDetail.join(' ;; ') + ']')
           }
           for (const key of ['backdrop', 'introSplash', 'reasoningCollapsed', 'popoutGestures']) {
             if (officialStores[key]) {
@@ -1241,11 +1260,13 @@ function AppearancePanel() {
   const changePopout = (on) => {
     setPopoutState(on)
     loadOfficialStores().then((s) => {
-      // ⚠️ 该 atom 无 persist 订阅（官方靠导出函数落盘+收起浮窗副作用）。
-      // 只 set atom = 即时改手势开关但不落盘、不收起已浮出的输入框；
-      // 认领会在识别阶段核对「翻转零写入」特征，认领失败退回直写=重启生效。
+      // 官方导出函数三件事：atom set（即时）+ persistBoolean 落盘 + 关时清 zones。
+      // hub 等价复刻取二：atom.set 即时生效（use-composer-popout 里
+      // poppedOut && gesturesEnabled——关手势时浮框自动归位停靠）+ 同键直写落盘
+      // （'true'/'false' 与官方 persistBoolean 同格式）。zone.poppedOut 存档不清，
+      // 与官方的差异仅在「关了再开，浮框位置复活」——边缘场景，接受。
       if (s?.popoutGestures) s.popoutGestures.set(on)
-      else writeBoolKey(POPOUT_KEY, on)
+      writeBoolKey(POPOUT_KEY, on)
     })
     haptic('tap')
   }
@@ -1299,6 +1320,16 @@ function AppearancePanel() {
   useEffect(() => { introModeRef.current = introMode }, [introMode])
   const [introHeadline, setIntroHeadline] = useState(() => ctxRef.storage.get(INTRO_HEADLINE_KEY, 'HERMES AGENT'))
   const [introTagline, setIntroTagline] = useState(() => ctxRef.storage.get(INTRO_TAGLINE_KEY, ''))
+
+  // ── 底部说明带联动：悬停/聚焦任一设置行 → 150ms 防抖后换文案；离开定格最后一条；
+  //    面板每次重开（组件重挂载）回占位。hovered 存 desc 键名，t() 缺键自动回退。
+  const [hovered, setHovered] = useState(null)
+  const hoverTimer = useRef(null)
+  useEffect(() => () => clearTimeout(hoverTimer.current), [])
+  const hover = (descKey) => {
+    clearTimeout(hoverTimer.current)
+    hoverTimer.current = setTimeout(() => setHovered(descKey), 150)
+  }
 
   // 面板挂载后建立同步：优先用模块级 liveZoom 缓存，未缓存则回退原生读取；
   // 订阅模块级变化（弹窗关闭即退订，但原生常驻监听在 register 时已挂，故反向永不断）
@@ -1540,28 +1571,24 @@ function AppearancePanel() {
             className: 'shrink-0 scale-90',
             'aria-label': t('language.title')
           }),
-          jsx(SegmentedControl, {
-            options: THEME_MODES.map((m) => ({ ...m, label: label(m) })),
-            value: themeMode,
-            onChange: setThemeMode,
-            className: 'shrink-0 scale-90'
+          jsx('div', {
+            style: { flexShrink: 0 },
+            onMouseEnter: () => hover('theme.titleDesc'),
+            children: jsx(SegmentedControl, {
+              options: THEME_MODES.map((m) => ({ ...m, label: label(m) })),
+              value: themeMode,
+              onChange: setThemeMode,
+              className: 'scale-90'
+            })
           })
         ]
       }),
       // 主题（原生皮肤列表，平铺网格）
       jsxs('div', {
+        onMouseEnter: () => hover('theme.gridDesc'),
         className: 'flex flex-col gap-1.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
         children: [
-          jsxs('div', {
-            className: 'flex items-center gap-2.5',
-            children: [
-              jsx('span', {
-                className: 'flex size-6 shrink-0 items-center justify-center',
-                children: jsx(icons.Palette, { className: 'size-3.5 text-(--ui-text-secondary)' })
-              }),
-              jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: t('theme.gridTitle') })
-            ]
-          }),
+          jsx('div', { className: 'min-w-0 text-[0.75rem] leading-tight', children: t('theme.gridTitle') }),
           jsx(
             'div',
             {
@@ -1588,56 +1615,37 @@ function AppearancePanel() {
       }),
 
       // 字体
-      jsxs('div', {
-        className: 'flex items-center gap-2.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
-        children: [
-          jsx('span', {
-            className: 'flex size-6 shrink-0 items-center justify-center',
-            children: jsx(icons.CircleLetterA, { className: 'size-3.5 text-(--ui-text-secondary)' })
-          }),
-          jsxs('div', {
-            className: 'min-w-0 flex-1',
-            children: [
-              jsx('div', { className: 'text-[0.75rem] leading-tight', children: t('font.title') }),
-              jsx('div', {
-                className: 'mt-0.5 text-[0.6875rem] leading-tight text-(--ui-text-tertiary)',
-                children: t('font.desc')
-              })
-            ]
-          }),
-          jsx(Switch, {
-            checked: font,
-            onCheckedChange: toggleFont,
-            'aria-label': '字体'
-          })
-        ]
+      // 字体（关/开；无图标无简介，hover→说明带）
+      jsx(BehaviorRow, {
+        title: t('font.title'),
+        options: [
+          { id: 'off', label: t('intro.off') },
+          { id: 'on', label: t('intro.on') }
+        ],
+        value: font ? 'on' : 'off',
+        onChange: (id) => toggleFont(id === 'on'),
+        stacked: stackedLayout,
+        onEnter: () => hover('font.desc')
       }),
 
       // 纸纹（开关 + 配方同属一个悬浮高亮容器）
       jsxs('div', {
+        onMouseEnter: () => hover('paper.desc'),
         className: 'flex flex-col gap-1 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
         children: [
           jsxs('div', {
             className: 'flex items-center gap-2.5',
             children: [
-              jsx('span', {
-                className: 'flex size-6 shrink-0 items-center justify-center',
-                children: jsx(icons.Layers3, { className: 'size-3.5 text-(--ui-text-secondary)' })
-              }),
-              jsxs('div', {
-                className: 'min-w-0 flex-1',
-                children: [
-                  jsx('div', { className: 'text-[0.75rem] leading-tight', children: t('paper.title') }),
-                  jsx('div', {
-                    className: 'mt-0.5 text-[0.6875rem] leading-tight text-(--ui-text-tertiary)',
-                    children: t('paper.desc')
-                  })
-                ]
-              }),
-              jsx(Switch, {
-                checked: paper,
-                onCheckedChange: togglePaper,
-                'aria-label': '纸纹'
+              jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: t('paper.title') }),
+              jsx(SegmentedControl, {
+                options: [
+                  { id: 'off', label: t('intro.off') },
+                  { id: 'on', label: t('intro.on') }
+                ],
+                value: paper ? 'on' : 'off',
+                onChange: (id) => togglePaper(id === 'on'),
+                style: { width: '150px', flexShrink: 0 },
+                'aria-label': t('paper.title')
               })
             ]
           }),
@@ -1676,84 +1684,34 @@ function AppearancePanel() {
         ]
       }),
 
-      // 标签栏（en 纵向通栏：图标+标题一行、控件通栏在下，与界面缩放同构；zh 横排）
-      jsxs('div', {
-        className: stackedLayout
-          ? 'flex flex-col gap-1.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)'
-          : 'flex items-center gap-2.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
-        children: [
-          jsxs('div', {
-            className: 'flex min-w-0 items-center gap-2.5',
-            children: [
-              jsx('span', {
-                className: 'flex size-6 shrink-0 items-center justify-center',
-                children: jsx(icons.AppWindow, { className: 'size-3.5 text-(--ui-text-secondary)' })
-              }),
-              jsxs('div', {
-                className: 'min-w-0 flex-1',
-                children: [
-                  jsx('div', { className: 'text-[0.75rem] leading-tight', children: t('tabstrip.title') }),
-                  jsx('div', {
-                    className: 'mt-0.5 text-[0.6875rem] leading-tight text-(--ui-text-tertiary)',
-                    children: t('tabstrip.desc')
-                  })
-                ]
-              })
-            ]
-          }),
-          jsx(SegmentedControl, {
-            options: TABSTRIP_OPTIONS.map((o) => ({ ...o, label: label(o) })),
-            value: tabStrip,
-            onChange: setTabStrip,
-            className: stackedLayout ? 'w-full' : 'ml-auto',
-            // flexShrink:0 禁止被长描述挤压——繁体曾压缩至此控件一字一行竖排断行
-            style: stackedLayout ? undefined : { width: '150px', flexShrink: 0 }
-          })
-        ]
+      // 标签栏（BehaviorRow：单行标题+定宽控件；en 纵向通栏）
+      jsx(BehaviorRow, {
+        title: t('tabstrip.title'),
+        options: TABSTRIP_OPTIONS.map((o) => ({ ...o, label: label(o) })),
+        value: tabStrip,
+        onChange: setTabStrip,
+        stacked: stackedLayout,
+        onEnter: () => hover('tabstrip.desc')
       }),
 
-      // 会话列表密度（en 纵向通栏，同标签栏）
-      jsxs('div', {
-        className: stackedLayout
-          ? 'flex flex-col gap-1.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)'
-          : 'flex items-center gap-2.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
-        children: [
-          jsxs('div', {
-            className: 'flex min-w-0 items-center gap-2.5',
-            children: [
-              jsx('span', {
-                className: 'flex size-6 shrink-0 items-center justify-center',
-                children: jsx(icons.FileText, { className: 'size-3.5 text-(--ui-text-secondary)' })
-              }),
-              jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: t('density.title') })
-            ]
-          }),
-          jsx(SegmentedControl, {
-            options: DENSITY_OPTIONS.map((o) => ({ ...o, label: label(o) })),
-            value: density,
-            onChange: setDensity,
-            className: stackedLayout ? 'w-full' : 'ml-auto',
-            style: stackedLayout ? undefined : { width: '150px', flexShrink: 0 }
-          })
-        ]
+      // 会话列表密度
+      jsx(BehaviorRow, {
+        title: t('density.title'),
+        options: DENSITY_OPTIONS.map((o) => ({ ...o, label: label(o) })),
+        value: density,
+        onChange: setDensity,
+        stacked: stackedLayout,
+        onEnter: () => hover('density.desc')
       }),
 
-      // 消息气泡（官方「消息气泡」滑杆提取：0=不透明 → 100=只剩边框）
+      // 消息气泡（滑杆行无对应 BehaviorRow 形态，仅去图标+挂 hover）
       jsxs('div', {
+        onMouseEnter: () => hover('bubble.desc'),
         className: stackedLayout
           ? 'flex flex-col gap-1.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)'
           : 'flex items-center gap-2.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
         children: [
-          jsxs('div', {
-            className: 'flex min-w-0 items-center gap-2.5',
-            children: [
-              jsx('span', {
-                className: 'flex size-6 shrink-0 items-center justify-center',
-                children: jsx(icons.MessageSquareText, { className: 'size-3.5 text-(--ui-text-secondary)' })
-              }),
-              jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: t('bubble.title') })
-            ]
-          }),
+          jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: t('bubble.title') }),
           jsxs('div', {
             className: 'flex min-w-0 items-center gap-2' + (stackedLayout ? '' : ' ml-auto'),
             children: [
@@ -1779,47 +1737,26 @@ function AppearancePanel() {
       }),
 
       // 聊天背景
-      jsxs('div', {
-        className: 'flex items-center gap-2.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
-        children: [
-          jsx('span', {
-            className: 'flex size-6 shrink-0 items-center justify-center',
-            children: jsx(icons.FileImage, { className: 'size-3.5 text-(--ui-text-secondary)' })
-          }),
-          jsxs('div', {
-            className: 'min-w-0 flex-1',
-            children: [
-              jsx('div', { className: 'text-[0.75rem] leading-tight', children: t('backdrop.title') }),
-              jsx('div', {
-                className: 'mt-0.5 text-[0.6875rem] leading-tight text-(--ui-text-tertiary)',
-                children: t('backdrop.desc')
-              })
-            ]
-          }),
-          jsx(SegmentedControl, {
-            options: [
-              { id: 'off', label: t('backdrop.off') },
-              { id: 'on', label: t('backdrop.on') }
-            ],
-            value: backdrop ? 'on' : 'off',
-            onChange: (id) => toggleBackdrop(id === 'on'),
-            className: 'ml-auto',
-            style: { width: '150px', flexShrink: 0 }
-          })
-        ]
+      jsx(BehaviorRow, {
+        title: t('backdrop.title'),
+        options: [
+          { id: 'off', label: t('backdrop.off') },
+          { id: 'on', label: t('backdrop.on') }
+        ],
+        value: backdrop ? 'on' : 'off',
+        onChange: (id) => toggleBackdrop(id === 'on'),
+        stacked: false,
+        onEnter: () => hover('backdrop.desc')
       }),
 
-      // 窗口透明
+      // 窗口透明（整块 hover 显示总说明；嵌套参数行不再单列文案）
       jsxs('div', {
+        onMouseEnter: () => hover('translucency.desc'),
         className: 'flex flex-col gap-1.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
         children: [
           jsxs('div', {
             className: 'flex items-center gap-2.5',
             children: [
-              jsx('span', {
-                className: 'flex size-6 shrink-0 items-center justify-center',
-                children: jsx(icons.Eye, { className: 'size-3.5 text-(--ui-text-secondary)' })
-              }),
               jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: t('translucency.title') }),
               jsx(SegmentedControl, {
                 options: [
@@ -1909,25 +1846,13 @@ function AppearancePanel() {
 
       // 开场标识（新会话空态字标 + 提示语）
       jsxs('div', {
+        onMouseEnter: () => hover('intro.desc'),
         className: 'flex flex-col gap-1.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
         children: [
           jsxs('div', {
             className: 'flex items-center gap-2.5',
             children: [
-              jsx('span', {
-                className: 'flex size-6 shrink-0 items-center justify-center',
-                children: jsx(icons.MessageSquareText, { className: 'size-3.5 text-(--ui-text-secondary)' })
-              }),
-              jsxs('div', {
-                className: 'min-w-0 flex-1',
-                children: [
-                  jsx('div', { className: 'text-[0.75rem] leading-tight', children: t('intro.title') }),
-                  jsx('div', {
-                    className: 'mt-0.5 text-[0.6875rem] leading-tight text-(--ui-text-tertiary)',
-                    children: t('intro.desc')
-                  })
-                ]
-              }),
+              jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: t('intro.title') }),
               jsx(SegmentedControl, {
                 options: [
                   { id: 'off', label: t('intro.off') },
@@ -1936,7 +1861,7 @@ function AppearancePanel() {
                 value: introOn ? 'on' : 'off',
                 onChange: (id2) => toggleIntro(id2 === 'on'),
                 className: 'ml-auto',
-                style: { width: '150px' }
+                style: { width: '150px', flexShrink: 0 }
               })
             ]
           }),
@@ -1977,7 +1902,6 @@ function AppearancePanel() {
       }),
       // ── 对话行为五件套（搬自官方设置页外观段，同键直驱官方状态）──
       jsx(BehaviorRow, {
-        iconEl: jsx(icons.Wrench, { className: 'size-3.5 text-(--ui-text-secondary)' }),
         title: t('behavior.toolView'),
         options: [
           { id: 'product', label: t('behavior.product') },
@@ -1985,10 +1909,10 @@ function AppearancePanel() {
         ],
         value: toolViewMode,
         onChange: changeToolViewMode,
-        stacked: stackedLayout
+        stacked: stackedLayout,
+        onEnter: () => hover('behavior.toolViewDesc')
       }),
       jsx(BehaviorRow, {
-        iconEl: jsx(icons.Brain, { className: 'size-3.5 text-(--ui-text-secondary)' }),
         title: t('behavior.reasoning'),
         options: [
           { id: 'off', label: t('intro.off') },
@@ -1996,10 +1920,10 @@ function AppearancePanel() {
         ],
         value: reasoningCollapsed ? 'on' : 'off',
         onChange: (id) => changeReasoning(id === 'on'),
-        stacked: stackedLayout
+        stacked: stackedLayout,
+        onEnter: () => hover('behavior.reasoningDesc')
       }),
       jsx(BehaviorRow, {
-        iconEl: jsx(icons.ExternalLink, { className: 'size-3.5 text-(--ui-text-secondary)' }),
         title: t('behavior.embeds'),
         options: [
           { id: 'ask', label: t('behavior.ask') },
@@ -2008,10 +1932,10 @@ function AppearancePanel() {
         ],
         value: embedMode,
         onChange: changeEmbedMode,
-        stacked: stackedLayout
+        stacked: stackedLayout,
+        onEnter: () => hover('behavior.embedsDesc')
       }),
       jsx(BehaviorRow, {
-        iconEl: jsx(icons.PanelBottom, { className: 'size-3.5 text-(--ui-text-secondary)' }),
         title: t('behavior.popout'),
         options: [
           { id: 'off', label: t('intro.off') },
@@ -2019,10 +1943,10 @@ function AppearancePanel() {
         ],
         value: popoutEnabled ? 'on' : 'off',
         onChange: (id) => changePopout(id === 'on'),
-        stacked: stackedLayout
+        stacked: stackedLayout,
+        onEnter: () => hover('behavior.popoutDesc')
       }),
       jsx(BehaviorRow, {
-        iconEl: jsx(icons.LayoutDashboard, { className: 'size-3.5 text-(--ui-text-secondary)' }),
         title: t('behavior.appActions'),
         options: [
           { id: 'left', label: t('behavior.left') },
@@ -2030,23 +1954,31 @@ function AppearancePanel() {
         ],
         value: appActionsSide,
         onChange: changeAppActions,
-        stacked: stackedLayout
+        stacked: stackedLayout,
+        onEnter: () => hover('behavior.appActionsDesc')
       }),
 
-      // 底部提示 + 界面缩放控件（缩放去区块化，落位原单/双栏开关位置）
+      // 底部说明带：左=悬停联动（空载显示占位 tip），右=界面缩放（悬停缩放条也联动）
       jsxs('div', {
         className: 'mt-1 flex items-center gap-2 border-t border-(--ui-stroke-secondary) px-2 pt-2',
         children: [
           jsx('div', {
-            className: 'min-w-0 flex-1 text-[0.625rem] text-(--ui-text-quaternary)',
-            children: t('footer.tip')
+            // 钉两行高：hover 换长/短文案时下方不跳；空载与联动同一容器
+            style: { minHeight: '2.5rem', lineHeight: 1.25, display: 'flex', alignItems: 'center' },
+            className: 'min-w-0 flex-1 text-[0.625rem] leading-tight text-(--ui-text-quaternary)',
+            children: t(hovered || 'footer.tip')
           }),
-          jsx(SegmentedControl, {
-            options: ZOOM_OPTIONS,
-            value: zoom,
-            onChange: setZoom,
-            className: 'shrink-0 scale-90',
-            'aria-label': t('zoom.title')
+          jsx('div', {
+            // onMouseEnter 包外层 div——SDK 组件不保证透传未知 props 到 DOM
+            style: { flexShrink: 0 },
+            onMouseEnter: () => hover('zoom.desc'),
+            children: jsx(SegmentedControl, {
+              options: ZOOM_OPTIONS,
+              value: zoom,
+              onChange: setZoom,
+              className: 'scale-90',
+              'aria-label': t('zoom.title')
+            })
           })
         ]
       })
