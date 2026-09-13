@@ -31,7 +31,7 @@ export const LOCALES = {
       gridTitle: 'Theme',
       gridDesc: 'Desktop palettes only. The selected mode is applied on top.'
     },
-    font: { title: 'LXGW Font', desc: 'Interface font · requires LXGW WenKai installed' },
+    font: { title: 'LXGW Fonts', desc: 'Interface font · requires LXGW WenKai & Mono installed' },
     paper: {
       title: 'Paper Texture', desc: 'Rice-paper grain layer · follows light/dark',
       recipeLight: 'Light recipe', recipeDark: 'Dark recipe',
@@ -78,7 +78,7 @@ export const LOCALES = {
       gridTitle: '主题',
       gridDesc: '仅桌面端调色板。所选模式叠加其上。'
     },
-    font: { title: '霞鹜文楷', desc: '界面字体 · 需将 LXGW WenKai 安装到系统' },
+    font: { title: '霞鹜文楷', desc: '界面字体 · 需将霞鹜文楷与文楷 Mono 安装到系统' },
     paper: {
       title: '纸纹模拟', desc: '宣纸噪点层 · 随明暗自动切换',
       recipeLight: '明亮配方', recipeDark: '暗色配方',
@@ -125,7 +125,7 @@ export const LOCALES = {
       gridTitle: '主題',
       gridDesc: '僅限桌面端的調色盤。所選模式會套用在其上。'
     },
-    font: { title: '霞鶩文楷', desc: '介面字型 · 需將 LXGW WenKai 安裝到系統' },
+    font: { title: '霞鶩文楷', desc: '介面字型 · 需將霞鶩文楷與文楷 Mono 安裝到系統' },
     paper: {
       title: '紙紋模擬', desc: '宣紙噪點層 · 隨明暗自動切換',
       recipeLight: '明亮配方', recipeDark: '暗色配方',
