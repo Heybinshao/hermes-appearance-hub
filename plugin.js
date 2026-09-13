@@ -1196,10 +1196,11 @@ function AppearancePanel() {
   // 响应式翻译器：locale 切换即重渲染（模块级 OPTIONS 的 labelKey 也在此统一取词）
   const t = usePluginI18n(ID)
   const label = (o) => (o.labelKey ? t(o.labelKey) : o.label)
-  // en 下单行区块改纵向通栏（标题在上、控件 w-full 在下，与界面缩放同构）；zh/zh-hant 保持横排
   // setLocale/isSavingLocale 来自官方 I18nProvider（useI18n 即官方 context），语言三键走同一官方通道
   const { locale, setLocale: setNativeLocale, isSavingLocale } = useI18n()
-  const stackedLayout = locale === 'en'
+  // en 纵向通栏开关：现全线统一「左标题右控件」横排（原 en 例外已废，
+  // 分支保留——后续若要重调 en 布局，改这一行即可全局生效）
+  const stackedLayout = false
   const [paper, setPaper] = useState(() => ctxRef.storage.get(PAPER_KEY, true))
   const [darkRecipe, setDarkRecipeState] = useState(() => {
     const v = ctxRef.storage.get(DARK_RECIPE_KEY, 'light')
