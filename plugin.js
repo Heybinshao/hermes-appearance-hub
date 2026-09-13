@@ -23,7 +23,7 @@ import { jsx, jsxs } from 'react/jsx-runtime'
 export const LOCALES = {
   en: {
     statusbar: { label: 'Appearance', title: 'Appearance Settings', toggleLabel: 'Appearance Settings' },
-    language: { title: 'Language' },
+    language: { title: 'Language', desc: 'Choose the language for the desktop interface.' },
     theme: {
       title: 'Appearance',
       titleDesc: 'Pick a fixed mode or let Hermes follow your system setting.',
@@ -31,9 +31,9 @@ export const LOCALES = {
       gridTitle: 'Theme',
       gridDesc: 'Desktop palettes only. The selected mode is applied on top.'
     },
-    font: { title: 'Font', desc: 'UI font · LXGW WenKai' },
+    font: { title: 'LXGW', desc: 'Interface font · requires LXGW WenKai installed' },
     paper: {
-      title: 'Paper Texture', desc: 'Rice-paper grain · follows light/dark',
+      title: 'Paper Texture', desc: 'Rice-paper grain layer · follows light/dark',
       recipeLight: 'Light recipe', recipeDark: 'Dark recipe',
       recipeLightSet: { light: 'Light', subtle: 'Subtle', classic: 'Classic', top: 'Topped' },
       recipeDarkSet: { light: 'Light', subtle: 'Subtle', classic: 'Classic', ground: 'Grounded' }
@@ -70,7 +70,7 @@ export const LOCALES = {
   },
   zh: {
     statusbar: { label: '外观', title: '外观设置', toggleLabel: '外观设置' },
-    language: { title: '语言' },
+    language: { title: '语言', desc: '选择桌面界面的语言。' },
     theme: {
       title: '外观',
       titleDesc: '选择固定模式，或让 Hermes 跟随系统设置。',
@@ -78,9 +78,9 @@ export const LOCALES = {
       gridTitle: '主题',
       gridDesc: '仅桌面端调色板。所选模式叠加其上。'
     },
-    font: { title: '字体', desc: '界面字体 · 霞鹜文楷（需安装到系统）' },
+    font: { title: '霞鹜文楷', desc: '界面字体 · 需将 LXGW WenKai 安装到系统' },
     paper: {
-      title: '纸纹', desc: '宣纸噪点层 · 随明暗自动切换',
+      title: '纸纹模拟', desc: '宣纸噪点层 · 随明暗自动切换',
       recipeLight: '明亮配方', recipeDark: '暗色配方',
       recipeLightSet: { light: '极轻', subtle: '微调', classic: '经典', top: '贴顶' },
       recipeDarkSet: { light: '极轻', subtle: '微调', classic: '经典', ground: '贴地' }
@@ -117,7 +117,7 @@ export const LOCALES = {
   },
   'zh-hant': {
     statusbar: { label: '外觀', title: '外觀設定', toggleLabel: '外觀設定' },
-    language: { title: '語言' },
+    language: { title: '語言', desc: '選擇桌面介面的語言。' },
     theme: {
       title: '外觀',
       titleDesc: '選擇固定模式，或讓 Hermes 跟隨系統設定。',
@@ -125,9 +125,9 @@ export const LOCALES = {
       gridTitle: '主題',
       gridDesc: '僅限桌面端的調色盤。所選模式會套用在其上。'
     },
-    font: { title: '字型', desc: '介面字型 · 霞鶩文楷（需安裝到系統）' },
+    font: { title: '霞鶩文楷', desc: '介面字型 · 需將 LXGW WenKai 安裝到系統' },
     paper: {
-      title: '紙紋', desc: '宣紙噪點層 · 隨明暗自動切換',
+      title: '紙紋模擬', desc: '宣紙噪點層 · 隨明暗自動切換',
       recipeLight: '明亮配方', recipeDark: '暗色配方',
       recipeLightSet: { light: '極輕', subtle: '微調', classic: '經典', top: '貼頂' },
       recipeDarkSet: { light: '極輕', subtle: '微調', classic: '經典', ground: '貼地' }
@@ -1558,18 +1558,22 @@ function AppearancePanel() {
             children: jsx(icons.Palette, { className: 'size-3.5 text-(--ui-text-secondary)' })
           }),
           jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight font-medium', children: t('theme.title') }),
-          // 语言三键：固定在顶部标题行、主题三档左侧（面板唯一布局=双栏，宽度充足）
-          jsx(SegmentedControl, {
-            options: [
-              { id: 'zh', label: '简' },
-              { id: 'zh-hant', label: '繁' },
-              { id: 'en', label: 'EN' }
-            ],
-            value: locale,
-            onChange: (id) => { setNativeLocale(id); haptic('tap') },
-            disabled: isSavingLocale,
-            className: 'shrink-0 scale-90',
-            'aria-label': t('language.title')
+          // 语言三键：包外层 div 挂 hover→说明带（SDK 组件不保证透传 DOM props）
+          jsx('div', {
+            style: { flexShrink: 0 },
+            onMouseEnter: () => hover('language.desc'),
+            children: jsx(SegmentedControl, {
+              options: [
+                { id: 'zh', label: '简' },
+                { id: 'zh-hant', label: '繁' },
+                { id: 'en', label: 'EN' }
+              ],
+              value: locale,
+              onChange: (id) => { setNativeLocale(id); haptic('tap') },
+              disabled: isSavingLocale,
+              className: 'scale-90',
+              'aria-label': t('language.title')
+            })
           }),
           jsx('div', {
             style: { flexShrink: 0 },
