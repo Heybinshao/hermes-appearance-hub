@@ -1655,37 +1655,45 @@ function AppearancePanel() {
           }),
 
           // 配方（明亮在上，暗色在下；从左到右由轻到重，默认极轻；纸纹关闭时禁用选择）
-          jsxs('div', {
-            className: 'flex items-center gap-2',
-            children: [
-              jsx('span', {
-                className: 'shrink-0 text-[0.625rem] text-(--ui-text-quaternary)',
-                children: t('paper.recipeLight')
-              }),
-              jsx(SegmentedControl, {
-                options: Object.entries(LIGHT_RECIPES).map(([id, r]) => ({ id, label: t(r.labelKey) })),
-                value: lightRecipe,
-                onChange: setLightRecipe,
-                disabled: !paper,
-                className: 'min-w-0 flex-1'
-              })
-            ]
+          // 官方 SegmentedControl 的 disabled 不屏蔽 hover 高亮（Chromium :hover
+          // 对 disabled button 仍生效），且不透传 style——外层 div 掐指针感知兜底
+          jsx('div', {
+            style: { pointerEvents: paper ? undefined : 'none' },
+            children: jsxs('div', {
+              className: 'flex items-center gap-2',
+              children: [
+                jsx('span', {
+                  className: 'shrink-0 text-[0.625rem] text-(--ui-text-quaternary)',
+                  children: t('paper.recipeLight')
+                }),
+                jsx(SegmentedControl, {
+                  options: Object.entries(LIGHT_RECIPES).map(([id, r]) => ({ id, label: t(r.labelKey) })),
+                  value: lightRecipe,
+                  onChange: setLightRecipe,
+                  disabled: !paper,
+                  className: 'min-w-0 flex-1'
+                })
+              ]
+            })
           }),
-          jsxs('div', {
-            className: 'flex items-center gap-2',
-            children: [
-              jsx('span', {
-                className: 'shrink-0 text-[0.625rem] text-(--ui-text-quaternary)',
-                children: t('paper.recipeDark')
-              }),
-              jsx(SegmentedControl, {
-                options: Object.entries(DARK_RECIPES).map(([id, r]) => ({ id, label: t(r.labelKey) })),
-                value: darkRecipe,
-                onChange: setDarkRecipe,
-                disabled: !paper,
-                className: 'min-w-0 flex-1'
-              })
-            ]
+          jsx('div', {
+            style: { pointerEvents: paper ? undefined : 'none' },
+            children: jsxs('div', {
+              className: 'flex items-center gap-2',
+              children: [
+                jsx('span', {
+                  className: 'shrink-0 text-[0.625rem] text-(--ui-text-quaternary)',
+                  children: t('paper.recipeDark')
+                }),
+                jsx(SegmentedControl, {
+                  options: Object.entries(DARK_RECIPES).map(([id, r]) => ({ id, label: t(r.labelKey) })),
+                  value: darkRecipe,
+                  onChange: setDarkRecipe,
+                  disabled: !paper,
+                  className: 'min-w-0 flex-1'
+                })
+              ]
+            })
           })
         ]
       }),
