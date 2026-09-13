@@ -2068,11 +2068,11 @@ function AppearancePanel() {
             children: [secTheme, secBackdrop, secPopout, secReasoning, secAppActions,
                       secToolView, secEmbeds, secTabStrip, secDensity]
           }),
-          // 右列：霞鹜文楷 → 纸纹模拟 → 开场标识 → 消息气泡 → 窗口透明（pl 内联，与左列对称）
+          // 右列：消息气泡 → 窗口透明 → 霞鹜文楷 → 纸纹模拟 → 开场标识（pl 内联，与左列对称）
           jsxs('div', {
             className: 'flex min-w-0 flex-1 flex-col border-l border-(--ui-stroke-secondary)',
             style: { paddingLeft: '12px' },
-            children: [secFont, secPaper, secIntro, secBubble, secTranslucency]
+            children: [secBubble, secTranslucency, secFont, secPaper, secIntro]
           })
         ]
       }),
