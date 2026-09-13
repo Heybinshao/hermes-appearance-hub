@@ -1879,39 +1879,46 @@ function AppearancePanel() {
               })
             ]
           }),
-          introOn &&
-            jsxs('div', {
-              className: 'flex flex-col gap-1.5',
-              children: [
-                jsx(SegmentedControl, {
-                  options: INTRO_OPTIONS.map((o) => ({ ...o, label: label(o) })),
-                  value: introMode,
-                  onChange: setIntroMode,
-                  className: 'w-full'
-                }),
-                introMode === 'custom' &&
-                  jsxs('div', {
-                    className: 'flex flex-col gap-1.5',
-                    children: [
-                      jsx(Input, {
-                        value: introHeadline,
-                        onChange: (e) => setIntroHeadline(e.target.value),
-                        placeholder: t('intro.headlinePlaceholder'),
-                        className: 'h-7 text-[0.6875rem]',
-                        'aria-label': '自定义字标'
-                      }),
-                      jsx(Textarea, {
-                        value: introTagline,
-                        onChange: (e) => setIntroTagline(e.target.value),
-                        placeholder: t('intro.taglinePlaceholder'),
-                        rows: 2,
-                        className: 'text-[0.6875rem]',
-                        'aria-label': '自定义提示语'
-                      })
-                    ]
+          // 展开区常驻：关 → 整块禁交互（同纸纹配方手法：外层掐指针感知灭 hover）；
+          // 开+原生文案 → 仅输入区禁用；开+自定义 → 全部可用
+          jsxs('div', {
+            style: { pointerEvents: introOn ? undefined : 'none' },
+            className: 'flex flex-col gap-1.5',
+            children: [
+              jsx(SegmentedControl, {
+                options: INTRO_OPTIONS.map((o) => ({ ...o, label: label(o) })),
+                value: introMode,
+                onChange: setIntroMode,
+                disabled: !introOn,
+                className: 'w-full'
+              }),
+              jsxs('div', {
+                // custom 子区独立掐指针：开+原生时也不可点，且不响应 hover
+                style: { pointerEvents: introOn && introMode === 'custom' ? undefined : 'none' },
+                className: 'flex flex-col gap-1.5',
+                children: [
+                  jsx(Input, {
+                    value: introHeadline,
+                    onChange: (e) => setIntroHeadline(e.target.value),
+                    placeholder: t('intro.headlinePlaceholder'),
+                    disabled: !introOn || introMode !== 'custom',
+                    className: 'h-7 text-[0.6875rem]',
+                    'aria-label': '自定义字标'
+                  }),
+                  jsx(Textarea, {
+                    value: introTagline,
+                    onChange: (e) => setIntroTagline(e.target.value),
+                    placeholder: t('intro.taglinePlaceholder'),
+                    disabled: !introOn || introMode !== 'custom',
+                    // 固定高度、不给拖拽调大小（右下角 resize 手柄关闭）
+                    style: { height: '3.5rem', resize: 'none' },
+                    className: 'text-[0.6875rem]',
+                    'aria-label': '自定义提示语'
                   })
-              ]
-            })
+                ]
+              })
+            ]
+          })
         ]
       }),
       // ── 对话行为五件套（搬自官方设置页外观段，同键直驱官方状态）──
