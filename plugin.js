@@ -1709,13 +1709,13 @@ function AppearancePanel() {
         onEnter: () => hover('tabstrip.desc')
       }),
 
-      // 会话列表密度
+      // 会话列表密度（en 例外：官方全词控件约 209px，横排放不下 → 该行单独纵向换行）
       jsx(BehaviorRow, {
         title: t('density.title'),
         options: DENSITY_OPTIONS.map((o) => ({ ...o, label: label(o) })),
         value: density,
         onChange: setDensity,
-        stacked: stackedLayout,
+        stacked: locale === 'en',
         onEnter: () => hover('density.desc')
       }),
 
