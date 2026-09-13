@@ -31,7 +31,7 @@ export const LOCALES = {
       gridTitle: 'Theme',
       gridDesc: 'Desktop palettes only. The selected mode is applied on top.'
     },
-    font: { title: 'LXGW', desc: 'Interface font · requires LXGW WenKai installed' },
+    font: { title: 'LXGW Font', desc: 'Interface font · requires LXGW WenKai installed' },
     paper: {
       title: 'Paper Texture', desc: 'Rice-paper grain layer · follows light/dark',
       recipeLight: 'Light recipe', recipeDark: 'Dark recipe',
