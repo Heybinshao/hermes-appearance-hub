@@ -54,7 +54,6 @@ export const LOCALES = {
       headlinePlaceholder: 'Wordmark, e.g. BINSHAO', taglinePlaceholder: 'Prompt (leave empty to follow native random copy)'
     },
     zoom: { title: 'UI Scale', desc: 'Native scaling · synced with Settings/View menu' },
-    layout: { single: 'Single column', dual: 'Dual column' },
     footer: { tip: 'Changes apply instantly · persist across restarts' },
     notify: { ready: 'Appearance Hub ready — use the Appearance toggle in the status bar', failed: 'Appearance Hub injection failed: ' }
   },
@@ -91,7 +90,6 @@ export const LOCALES = {
       headlinePlaceholder: '字标，如 BINSHAO', taglinePlaceholder: '提示语（留空跟随原生随机文案）'
     },
     zoom: { title: '界面缩放', desc: '原生缩放 · 与设置/View菜单同步' },
-    layout: { single: '单栏', dual: '双栏' },
     footer: { tip: '修改即时生效 · 重启后保留' },
     notify: { ready: '外观 Hub 已就绪 — 状态栏「外观」开关', failed: '外观 Hub 注入失败: ' }
   },
@@ -128,7 +126,6 @@ export const LOCALES = {
       headlinePlaceholder: '字標，例如 BINSHAO', taglinePlaceholder: '提示語（留空跟隨原生隨機文案）'
     },
     zoom: { title: '介面縮放', desc: '原生縮放 · 與設定/檢視選單同步' },
-    layout: { single: '單欄', dual: '雙欄' },
     footer: { tip: '修改即時生效 · 重啟後保留' },
     notify: { ready: '外觀 Hub 已就緒 — 狀態列「外觀」開關', failed: '外觀 Hub 注入失敗: ' }
   }
@@ -166,7 +163,6 @@ const INTRO_HEADLINE_KEY = 'intro.headline'    // 自定义字标
 const INTRO_TAGLINE_KEY = 'intro.tagline'      // 自定义提示语（空 = 跟随原生随机文案）
 const INTRO_STYLE_ID = ID + '-intro-style'
 const INTRO_NATIVE_KEY = 'hermes.desktop.intro-splash.v1'  // 只写不改名，与原生设置页保持一致
-const DUAL_COL_KEY = 'layout.dualColumn'        // 面板布局：true=双栏（默认）/ false=单栏
 
 // ── 纸纹试验配方（暗色治泛白 / 浅色治发灰）──────────────────────────
 // 暗色 screen 泛白根因：fractalNoise 均值~50% 灰 + screen（只提亮）→ 整屏抬向灰白。
@@ -1147,13 +1143,6 @@ function AppearancePanel() {
   useEffect(() => { introModeRef.current = introMode }, [introMode])
   const [introHeadline, setIntroHeadline] = useState(() => ctxRef.storage.get(INTRO_HEADLINE_KEY, 'HERMES AGENT'))
   const [introTagline, setIntroTagline] = useState(() => ctxRef.storage.get(INTRO_TAGLINE_KEY, ''))
-  // 面板布局：双栏（默认）/ 单栏，底部提示行右侧开关切换
-  const [dualCol, setDualColState] = useState(() => ctxRef.storage.get(DUAL_COL_KEY, true))
-  const setDualCol = (on) => {
-    setDualColState(on)
-    ctxRef.storage.set(DUAL_COL_KEY, on)
-    haptic('tap')
-  }
 
   // 面板挂载后建立同步：优先用模块级 liveZoom 缓存，未缓存则回退原生读取；
   // 订阅模块级变化（弹窗关闭即退订，但原生常驻监听在 register 时已挂，故反向永不断）
@@ -1382,8 +1371,8 @@ function AppearancePanel() {
             children: jsx(icons.Palette, { className: 'size-3.5 text-(--ui-text-secondary)' })
           }),
           jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight font-medium', children: t('theme.title') }),
-          // 双栏：语言三键放标题行、主题三档左侧（42rem 宽度充足）；单栏 21rem 放不下，仍留主题版块标题行
-          dualCol && jsx(SegmentedControl, {
+          // 语言三键：固定在顶部标题行、主题三档左侧（面板唯一布局=双栏，宽度充足）
+          jsx(SegmentedControl, {
             options: [
               { id: 'zh', label: '简' },
               { id: 'zh-hant', label: '繁' },
@@ -1414,20 +1403,7 @@ function AppearancePanel() {
                 className: 'flex size-6 shrink-0 items-center justify-center',
                 children: jsx(icons.Palette, { className: 'size-3.5 text-(--ui-text-secondary)' })
               }),
-              jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: t('theme.gridTitle') }),
-              // 语言三键：双栏时已在顶部标题行（主题三档左侧），此处仅单栏显示
-              !dualCol && jsx(SegmentedControl, {
-                options: [
-                  { id: 'zh', label: '简' },
-                  { id: 'zh-hant', label: '繁' },
-                  { id: 'en', label: 'EN' }
-                ],
-                value: locale,
-                onChange: (id) => { setNativeLocale(id); haptic('tap') },
-                disabled: isSavingLocale,
-                className: 'shrink-0 scale-90',
-                'aria-label': t('language.title')
-              })
+              jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: t('theme.gridTitle') })
             ]
           }),
           jsx(
@@ -1884,56 +1860,42 @@ function AppearancePanel() {
         ]
       }),
 
-      // 底部提示 + 单栏/双栏布局开关
-      jsxs('div', {
+      // 底部提示
+      jsx('div', {
         className: 'mt-1 flex items-center gap-2 border-t border-(--ui-stroke-secondary) px-2 pt-2',
-        children: [
-          jsx('div', {
-            className: 'min-w-0 flex-1 text-[0.625rem] text-(--ui-text-quaternary)',
-            children: t('footer.tip')
-          }),
-          jsx(SegmentedControl, {
-            options: [
-              { id: 'single', label: t('layout.single') },
-              { id: 'dual', label: t('layout.dual') }
-            ],
-            value: dualCol ? 'dual' : 'single',
-            onChange: (id) => setDualCol(id === 'dual'),
-            className: 'shrink-0 scale-90'
-          })
-        ]
+        children: jsx('div', {
+          className: 'min-w-0 flex-1 text-[0.625rem] text-(--ui-text-quaternary)',
+          children: t('footer.tip')
+        })
       })
     ]
-  // 区块索引：0=标题 1=主题 2=字体 3=纸纹 4=标签栏 5=密度 6=聊天背景 7=消息气泡 8=窗口透明 9=开场标识 10=缩放 11=底部提示+布局开关
+  // 区块索引：0=标题 1=主题 2=字体 3=纸纹 4=标签栏 5=密度 6=消息气泡 7=聊天背景 8=窗口透明 9=开场标识 10=缩放 11=底部提示
   const [secTitle, secTheme, secFont, secPaper, secTabStrip, secDensity, secBubble, secBackdrop,
          secTranslucency, secIntro, secZoom, secFooter] = secChildren
 
-  // 双栏：标题通栏 + 左右两列；单栏：与改前完全一致的顺序；底部提示两种模式共用
+  // 双栏（唯一布局）：标题通栏 + 左右两列 + 底部提示
   return jsxs('div', {
     className: 'flex flex-col p-3',
-    style: { width: dualCol ? '42rem' : '21rem' },
+    style: { width: '42rem' },
     children: [
       secTitle,
-      dualCol
-        ? jsxs('div', {
-            className: 'flex flex-row',
-            children: [
-              // 左列：主题 → 字体 → 纸纹 → 标签栏 → 密度 → 聊天背景（pr 内联——宿主未编译 .pr-3，曾致双栏不对称）
-              jsxs('div', {
-                className: 'flex min-w-0 flex-1 flex-col',
-                style: { paddingRight: '12px' },
-                children: [secTheme, secFont, secPaper, secTabStrip, secDensity, secBackdrop]
-              }),
-              // 右列：消息气泡 → 窗口透明 → 开场标识 → 缩放（pl 内联，与左列对称）
-              jsxs('div', {
-                className: 'flex min-w-0 flex-1 flex-col border-l border-(--ui-stroke-secondary)',
-                style: { paddingLeft: '12px' },
-                children: [secBubble, secTranslucency, secIntro, secZoom]
-              })
-            ]
+      jsxs('div', {
+        className: 'flex flex-row',
+        children: [
+          // 左列：主题 → 字体 → 纸纹 → 标签栏 → 密度 → 聊天背景（pr 内联——宿主未编译 .pr-3，曾致双栏不对称）
+          jsxs('div', {
+            className: 'flex min-w-0 flex-1 flex-col',
+            style: { paddingRight: '12px' },
+            children: [secTheme, secFont, secPaper, secTabStrip, secDensity, secBackdrop]
+          }),
+          // 右列：消息气泡 → 窗口透明 → 开场标识 → 缩放（pl 内联，与左列对称）
+          jsxs('div', {
+            className: 'flex min-w-0 flex-1 flex-col border-l border-(--ui-stroke-secondary)',
+            style: { paddingLeft: '12px' },
+            children: [secBubble, secTranslucency, secIntro, secZoom]
           })
-        : [secTheme, secFont, secPaper, secTabStrip, secDensity, secBackdrop, secBubble,
-           secTranslucency, secIntro, secZoom],
+        ]
+      }),
       secFooter
     ]
   })
