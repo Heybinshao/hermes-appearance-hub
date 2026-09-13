@@ -1,13 +1,14 @@
 # Hermes Appearance Hub ![版本](https://img.shields.io/badge/版本-v2.3.0-blue)
 
-给 Hermes 桌面端用的**外观整合插件**：把主题、纸纹模拟、字体、缩放、标签栏、密度、聊天背景、消息气泡、窗口透明、开场标识、对话行为等设置收进一个状态栏入口，一键管理，设置持久化。
+给 Hermes 桌面端用的**外观整合插件**：把散在官方设置页各处的外观与对话行为开关，连同纸纹模拟、霞鹜文楷、Binshao 主题等独有能力，收进状态栏一个浮窗——悬停即见说明，改动即时生效，省掉翻设置页的路径。
 
 ## 特性
 
 - 无需构建、不改应用代码——单个 ESM 文件
 - 状态栏「外观」入口，右键可显隐
 - 双栏面板 · 每行只留标题，悬停即见简介（底部说明带）
-- 主题（12 个，含 Binshao 暖纸）· 语言简/繁/EN · 霞鹜文楷 · 纸纹模拟 · 缩放 · 标签栏 · 密度 · 聊天背景 · 消息气泡 · 窗口透明 · 开场标识 · 对话行为（工具调用显示 / 折叠推理 / 内嵌预览 / 悬浮输入框 / 应用操作）
+- 主题（12 个，含 Binshao 暖纸）· 语言简/繁/EN · 霞鹜文楷 · 纸纹模拟 · 界面缩放
+- 聊天背景 · 消息气泡 · 窗口透明 · 开场标识 · 对话行为五件套（工具调用显示 / 折叠推理 / 内嵌预览 / 悬浮输入框 / 应用操作）
 - 设置持久化，卸载清理注入、不留残留
 
 ## 界面预览
@@ -114,17 +115,6 @@ rm -rf ~/.hermes/desktop-plugins/hermes-appearance-hub
 ```
 
 插件被禁用/删除时会自动移除所有注入（纸纹层、字体、开场标识替换等）并还原官方设置，不留残留。
-
-## 原理简述
-
-- **底部说明带**：每行只留标题，`onMouseEnter`/`onFocus` 携带该项 desc 键名上报面板状态，150ms 防抖后在底部固定高度（两行）区域渲染；离开定格最后一条、面板重开回占位。禁用某项时用外层 `pointer-events:none` 掐指针感知——官方 `SegmentedControl` 的 `disabled` 只挡点击不挡 `:hover`
-- **纸纹模拟**：全屏 fixed 背景层（z-index 最大 + `pointer-events: none` 不挡点击），纹理 = SVG `feTurbulence` 噪点 data URI（无外部图片依赖）；浅色 `multiply`、深色 `screen`，`MutationObserver` 跟随明暗切换
-- **霞鹜文楷**：注入 `:root { --dt-font-sans/--dt-font-mono: 'LXGW WenKai' !important }`，压过主题的 inline 字体设置
-- **开场标识**：定位原生开关的 localStorage 键（`hermes.desktop.intro-splash.v1`）做落盘同步；自定义文字用 `MutationObserver` 直接替换 `[data-slot="aui_intro"]` 内 fit-text 叶子 span 的文本——不碰应用代码，React 重渲染写回也会被重新替换；禁用时移除注入并还原原文案
-- **官方设置项直驱**：动态 import 官方打包 chunk 拿 nanostores atom 实时驱动界面。识别方式三种——① 字符串枚举按值域互斥认领（密度/工具调用/内嵌预览/应用操作/标签栏）；② boolean 翻转探测按「翻转引发哪个 localStorage 键写入」滚动基线认领（聊天背景/开场标识/折叠推理）；③ 无 persist 订阅的 atom（悬浮输入框）走静态源码指纹反解（存储键字面量全 chunk 唯一，反解 `键→种子→atom→export` 变量链）。均无硬编码混淆名；atom 未识别时退回 localStorage 直写（重启生效）
-- **窗口透明**：写 TranslucencyBook JSON 后直接调用 `window.hermesDesktop.setTranslucency()` IPC，实时驱动原生窗口效果
-- **双栏布局**：面板区块提取为列表后按列分配渲染，标题行通栏
-- **Binshao 主题**：主题种子写入官方用户主题 localStorage 键（`hermes-desktop-user-themes-v1`），经官方 `resolveTheme` 生效；另注入一小段作用域锁定的 CSS（选中色/输入框底/行内代码），补齐主题管道外的硬编码色
 
 ## 关于作者
 
