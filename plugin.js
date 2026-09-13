@@ -791,6 +791,35 @@ function writeSimpleKey(key, value) {
   } catch {}
 }
 
+// ── 悬浮输入框 atom 的静态源码指纹反解 ──────────────────────────────
+// 官方 $composerPopoutGesturesEnabled 无 persist 订阅（翻转零写入），行为探针
+// 与其他零写入 atom 撞车不可靠；但它从键名到导出的变量链是固定的：
+//   mn=`键串` → _n=P(mn,!0) → wn=t(_n) → export { wn as X }
+// 键串在全 chunk 唯一，反解稳定。返回导出名或 null（失败退回行为认领/直写）。
+function findGesturesAtomExport(src) {
+  try {
+    const key = POPOUT_KEY.replace(/\./g, '\\.')
+    const m1 = src.match(new RegExp('([A-Za-z_$][\\w$]*)\\s*=\\s*[`"\']' + key + '[`"\']'))
+    if (!m1) return null
+    const keyVar = m1[1]
+    const m2 = src.match(new RegExp('([A-Za-z_$][\\w$]*)\\s*=\\s*[A-Za-z_$][\\w$]*\\(\\s*' + keyVar + '\\s*,\\s*(?:!0|true)\\s*\\)'))
+    if (!m2) return null
+    const seedVar = m2[1]
+    // atom 包装在种子声明后不远处（同一 var 列表）；窗口限定避免全文误配
+    const win = src.slice(m2.index + m2[0].length, m2.index + 4000)
+    const m3 = win.match(new RegExp('([A-Za-z_$][\\w$]*)\\s*=\\s*[A-Za-z_$][\\w$]*\\(\\s*' + seedVar + '\\s*\\)'))
+    if (!m3) return null
+    const atomVar = m3[1]
+    const exp = src.match(/export\s*\{([^}]*)\}/)
+    if (!exp) return null
+    for (const pair of exp[1].split(',')) {
+      const parts = pair.trim().split(/\s+as\s+/)
+      if (parts[0] === atomVar) return (parts[1] || parts[0]).trim()
+    }
+    return null
+  } catch { return null }
+}
+
 // ── 官方 store 实时通道：动态 import 官方 chunk，直接调 nanostores atom ──
 let officialStores = null
 
@@ -809,8 +838,19 @@ async function loadOfficialStores() {
     const m1 = mainSrc.match(/([\w-]*session-list-density-[A-Za-z0-9_-]+\.js)/)
     if (m1 && !officialStores.probed) {
       try {
-        const mod = await import(/* @vite-ignore */ new URL('./' + m1[1], base).href)
+        const chunkUrl = new URL('./' + m1[1], base).href
+        const chunkSrc = await (await fetch(chunkUrl)).text()
+        const mod = await import(/* @vite-ignore */ chunkUrl)
         officialStores.probed = true   // 探测完整执行过一次才标记（fetch/import 失败保留下次重试机会）
+        // ── 悬浮输入框：静态源码指纹反解认领（零翻转零闪烁），失败留待行为兜底 ──
+        if (!officialStores.popoutGestures) {
+          const gExport = findGesturesAtomExport(chunkSrc)
+          const gAtom = gExport && mod[gExport]
+          if (gAtom && typeof gAtom.get === 'function' && typeof gAtom.set === 'function' && typeof gAtom.get() === 'boolean') {
+            officialStores.popoutGestures = gAtom
+            console.error('[appearance-hub] ✅ popoutGestures 静态认领 via export ' + gExport)
+          }
+        }
         for (const k of Object.keys(mod)) {
           const v = mod[k]
           if (!v || typeof v.get !== 'function' || typeof v.set !== 'function') continue
@@ -824,8 +864,9 @@ async function loadOfficialStores() {
           if (cur === 'product' || cur === 'technical') { officialStores.toolViewMode ??= v; continue }
           if (cur === 'ask' || cur === 'always' || cur === 'off') { officialStores.embedMode ??= v; continue }
           if (cur === 'left' || cur === 'right') { officialStores.appActions ??= v; continue }
-          // 收集 boolean atom（backdrop / intro-splash / reasoning / 命令面板开关等）
-          if (typeof cur === 'boolean') {
+          // 收集 boolean atom（backdrop / intro-splash / reasoning / 命令面板开关等；
+          // 静态已认领的 gestures atom 不重复入池）
+          if (typeof cur === 'boolean' && v !== officialStores.popoutGestures) {
             if (!foundBoolAtoms) foundBoolAtoms = []
             foundBoolAtoms.push(v)
           }
