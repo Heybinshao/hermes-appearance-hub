@@ -31,7 +31,7 @@ export const LOCALES = {
       gridTitle: 'Theme',
       gridDesc: 'Desktop palettes only. The selected mode is applied on top.'
     },
-    font: { title: 'LXGW Fonts', desc: 'UI font · auto-yields when a chat font is set in official Settings' },
+    font: { title: 'LXGW Fonts', desc: 'UI font · latest action wins vs official chat font', yieldNote: 'LXGW takes over; edit the chat font in Settings to hand control back.' },
     paper: {
       title: 'Paper Texture', desc: 'Rice-paper grain layer · follows light/dark',
       recipeLight: 'Light recipe', recipeDark: 'Dark recipe',
@@ -78,7 +78,7 @@ export const LOCALES = {
       gridTitle: '主题',
       gridDesc: '仅桌面端调色板。所选模式叠加其上。'
     },
-    font: { title: '霞鹜文楷', desc: '界面字体 · 官方设置页自定义了聊天字体时自动让位' },
+    font: { title: '霞鹜文楷', desc: '界面字体 · 与官方聊天字体按最后操作优先', yieldNote: '霞鹜文楷已接管界面字体；在官方设置页改聊天字体即可切回。' },
     paper: {
       title: '纸纹模拟', desc: '宣纸噪点层 · 随明暗自动切换',
       recipeLight: '明亮配方', recipeDark: '暗色配方',
@@ -125,7 +125,7 @@ export const LOCALES = {
       gridTitle: '主題',
       gridDesc: '僅限桌面端的調色盤。所選模式會套用在其上。'
     },
-    font: { title: '霞鶩文楷', desc: '介面字型 · 官方設定頁自訂了聊天字型時自動讓位' },
+    font: { title: '霞鶩文楷', desc: '介面字型 · 與官方聊天字型按最後操作優先', yieldNote: '霞鶩文楷已接管介面字型；在官方設定頁改聊天字型即可切回。' },
     paper: {
       title: '紙紋模擬', desc: '宣紙噪點層 · 隨明暗自動切換',
       recipeLight: '明亮配方', recipeDark: '暗色配方',
@@ -167,6 +167,9 @@ export const LOCALES = {
 const ID = 'hermes-appearance-hub'
 const PAPER_KEY = 'paper.enabled'
 const FONT_KEY = 'font.enabled'
+// 字体归属仲裁（最后动作胜）：'hub'=文楷接管（注入 sans），'official'=官方聊天字体在场。
+// 仅在文楷开关开着时有意义；关=无注入，天然官方接管，不需要记。默认 hub=v3.0.0 前行为，老用户零打扰。
+const FONT_WINNER_KEY = 'font.winner'
 const WELCOME_KEY = 'welcome-v1'
 
 // 界面缩放档位：直接复用 Hermes 原生预设（90/100/110/125/150/175 均为原生支持值）。
@@ -431,18 +434,23 @@ const FONT_MONO =
   '"LXGW WenKai Mono", Menlo, Monaco, "SF Mono", monospace, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", emoji'
 // 只用本机已装的 LXGW WenKai；未安装则 CSS 回退到后面的系统字体栈。不走 CDN。
 
-// 官方聊天字体活跃判定（P1 让位检测）：
-// 官方链把 config desktop.font_family 经 resolveChatFontFamily 写进 root.style inline；
-// applyTheme 无条件 paint（未设置时 inline=主题栈），所以不能看"inline 有没有值"，
-// 要看形态：用户字体被 quoteSingleFamily 包成 `'UserFont', <主题栈>`（单引号开头），
-// 未设置时以 `"Segoe WPC"…`（SYSTEM_SANS，双引号）或主题自定义栈开头。
-// 已知盲区：用户手填完整 CSS stack 且以双引号开头会漏判——power user 行为，其自
-// 知覆盖关系，接受。
-function officialChatFontActive() {
+// 官方聊天字体的「用户字体段」提取：applyTheme 把 config desktop.font_family 经
+// quoteSingleFamily 写成 `'UserFont', <主题栈>` 注入 root.style inline（单引号开头）；
+// 未设置时 inline=主题栈（双引号 `"Segoe WPC"…` 起头，无单引号段）。
+// 只取单引号内那一段作为比对基准——主题切换会让主题栈部分变，但用户字体段不变，
+// 据此区分「用户编辑聊天字体」与「applyTheme 重绘」，避免误夺 hub 所有权。
+// 已知盲区：用户手填双引号完整 CSS stack 会读成空段（漏判为未设置）——power user
+// 行为且方向是 hub 赢，符合其装插件意图，接受。
+function officialUserFont() {
   try {
-    return /^\s*'/.test(document.documentElement.style.getPropertyValue('--dt-font-sans'))
-  } catch { return false }
+    const v = document.documentElement.style.getPropertyValue('--dt-font-sans')
+    const m = /^\s*'((?:[^'\\]|\\.)*)'/.exec(v)
+    return m ? m[1] : ''
+  } catch { return '' }
 }
+
+// 上一次观测到的官方用户字体段（模块级真相，冷启动播种当前值）
+let officialUserFontLast = null
 
 function applyFont() {
   let style = document.getElementById(FONT_STYLE_ID)
@@ -451,13 +459,12 @@ function applyFont() {
     style.id = FONT_STYLE_ID
     document.head.appendChild(style)
   }
-  // !important 必须保留：官方 applyTheme 把 --dt-font-sans（含主题默认栈）无条件
-  // 写进 root.style inline，样式表普通声明永远输给 inline——去感叹号=文楷永不动。
-  // 与官方「聊天字体」自定义的优先级冲突由本函数动态让位解决：检测到官方活跃时
-  // 省略 sans 声明，root.style 变化由 watchOfficialChatFont 再入本函数——用户显式
-  // 配置 > 一键策展。mono/tooltip 不让位：官方链不碰这两处（tooltip chip 是官方
-  // 故意硬编码 Arial 的 11px 小字，v2 起 hub 就有意覆盖），继续跟随开关。
-  const sansDecl = officialChatFontActive() ? '' : '--dt-font-sans:' + FONT_SANS + ' !important;'
+  // 字体归属=最后动作胜（font.winner）：
+  //   hub      → 注入 sans（哪怕官方有值；用户最后点的是这里）
+  //   official → 省略 sans，官方 inline 上屏；官方清空时 observer 会把 winner 拨回 hub
+  // 默认 hub：等价 v3.0.0 前行为，老用户零打扰。mono/tooltip 恒随开关（官方链不碰）。
+  const winner = ctxRef ? ctxRef.storage.get(FONT_WINNER_KEY, 'hub') : 'hub'
+  const sansDecl = winner === 'hub' ? '--dt-font-sans:' + FONT_SANS + ' !important;' : ''
   style.textContent =
     ':root{' + sansDecl +
     '--dt-font-mono:' + FONT_MONO + ' !important;' +
@@ -465,13 +472,33 @@ function applyFont() {
     '[data-slot="tooltip-content"] > span{font-family:var(--hub-ui-font) !important}'
 }
 
-// 官方聊天字体编辑监听：applyTheme 每次改 root.style inline 都触发 → 重放注入层
-// （让位/恢复全自动）。fontObserver 常驻（register 挂、dispose 摘），与弹窗无关。
+// 官方聊天字体编辑监听（常驻，register 挂、dispose 摘）：只认「用户字体段」变化——
+// 非空出现/改值 = 官方被编辑 → winner=official 让位；
+// 由非空变空 = 官方被清空 → winner=hub 恢复文楷；
+// 段不变（仅主题栈随切主题重绘）→ 不动 winner，hub 的接管不被误夺。
+// 冷启动：register 可能早于官方首绘，首次观测只播种基线不裁决（否则首绘被当成
+// 编辑，误夺默认 hub 的所有权）；关态也持续维护基线，保证开关联动判定有参照。
 let fontObserver = null
+let officialFontSeeded = false
 function watchOfficialChatFont() {
   if (fontObserver) return
+  officialFontSeeded = false
+  officialUserFontLast = null
   fontObserver = new MutationObserver(() => {
-    if (ctxRef && ctxRef.storage.get(FONT_KEY, false)) applyFont()
+    const cur = officialUserFont()
+    if (!officialFontSeeded) { officialUserFontLast = cur; officialFontSeeded = true; return }
+    if (cur === officialUserFontLast) return
+    const wasSet = officialUserFontLast !== ''
+    officialUserFontLast = cur
+    if (!ctxRef || !ctxRef.storage.get(FONT_KEY, false)) return
+    if (cur !== '') {
+      ctxRef.storage.set(FONT_WINNER_KEY, 'official')
+      applyFont()
+    } else if (wasSet) {
+      // 官方清空 → 交还文楷（仅在开关开着时；否则本就没有注入）
+      ctxRef.storage.set(FONT_WINNER_KEY, 'hub')
+      applyFont()
+    }
   })
   fontObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] })
 }
@@ -1564,15 +1591,19 @@ function AppearancePanel() {
   }
 
     const toggleFont = (next) => {
-    // 官方「聊天字体」已自定义时点「开」= 让位（注入层 sans 省略，开关亮而无视觉效果）。
-    // 不禁止点击：官方值清空/改回主题栈后 observer 自动接管恢复文楷。
-    if (next && officialChatFontActive()) {
-      host.notify({ kind: 'info', message: ctxRef.i18n.t('font.desc') })
-    }
+    // 最后动作胜：点「开」= 无条件接管（哪怕官方聊天字体有值），通知一次说明
+    // 让位关系；官方值从未被插件改写，点「关」或官方页再编辑都即时复位。
     setFont(next)
     ctxRef.storage.set(FONT_KEY, next)
-    if (next) applyFont()
-    else removeFont()
+    if (next) {
+      ctxRef.storage.set(FONT_WINNER_KEY, 'hub')
+      if (officialUserFont() !== '') {
+        host.notify({ kind: 'info', message: ctxRef.i18n.t('font.yieldNote') })
+      }
+      applyFont()
+    } else {
+      removeFont()
+    }
     haptic('tap')
   }
 
