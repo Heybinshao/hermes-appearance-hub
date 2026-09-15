@@ -1566,10 +1566,6 @@ function AppearancePanel() {
     const toggleFont = (next) => {
     // 官方「聊天字体」已自定义时点「开」= 让位（注入层 sans 省略，开关亮而无视觉效果）。
     // 不禁止点击：官方值清空/改回主题栈后 observer 自动接管恢复文楷。
-    // 探针（error 级才落盘）：本轮本地测试用，核对让位判定与 inline 实际形态
-    console.error('[appearance-hub] font toggle → ' + next +
-      ' officialActive=' + officialChatFontActive() +
-      ' inline=[' + document.documentElement.style.getPropertyValue('--dt-font-sans') + ']')
     if (next && officialChatFontActive()) {
       host.notify({ kind: 'info', message: ctxRef.i18n.t('font.desc') })
     }
