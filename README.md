@@ -1,4 +1,4 @@
-# Hermes Appearance Hub ![版本](https://img.shields.io/badge/版本-v3.0.0-blue)
+# Hermes Appearance Hub ![版本](https://img.shields.io/badge/版本-v3.1.0-blue)
 
 给 Hermes 桌面端用的**外观整合插件**：把散在官方设置页各处的外观与对话行为开关，连同纸纹模拟、霞鹜文楷、Binshao 主题等独有能力，收进状态栏一个浮窗——悬停即见说明，改动即时生效，省掉翻设置页的路径。
 
