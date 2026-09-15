@@ -31,7 +31,7 @@ export const LOCALES = {
       gridTitle: 'Theme',
       gridDesc: 'Desktop palettes only. The selected mode is applied on top.'
     },
-    font: { title: 'LXGW Fonts', desc: 'Interface font · requires LXGW WenKai & Mono installed' },
+    font: { title: 'LXGW Fonts', desc: 'UI font · auto-yields when a chat font is set in official Settings' },
     paper: {
       title: 'Paper Texture', desc: 'Rice-paper grain layer · follows light/dark',
       recipeLight: 'Light recipe', recipeDark: 'Dark recipe',
@@ -78,7 +78,7 @@ export const LOCALES = {
       gridTitle: '主题',
       gridDesc: '仅桌面端调色板。所选模式叠加其上。'
     },
-    font: { title: '霞鹜文楷', desc: '界面字体 · 需将霞鹜文楷与文楷 Mono 安装到系统' },
+    font: { title: '霞鹜文楷', desc: '界面字体 · 官方设置页自定义了聊天字体时自动让位' },
     paper: {
       title: '纸纹模拟', desc: '宣纸噪点层 · 随明暗自动切换',
       recipeLight: '明亮配方', recipeDark: '暗色配方',
@@ -125,7 +125,7 @@ export const LOCALES = {
       gridTitle: '主題',
       gridDesc: '僅限桌面端的調色盤。所選模式會套用在其上。'
     },
-    font: { title: '霞鶩文楷', desc: '介面字型 · 需將霞鶩文楷與文楷 Mono 安裝到系統' },
+    font: { title: '霞鶩文楷', desc: '介面字型 · 官方設定頁自訂了聊天字型時自動讓位' },
     paper: {
       title: '紙紋模擬', desc: '宣紙噪點層 · 隨明暗自動切換',
       recipeLight: '明亮配方', recipeDark: '暗色配方',
@@ -431,6 +431,19 @@ const FONT_MONO =
   '"LXGW WenKai Mono", Menlo, Monaco, "SF Mono", monospace, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", emoji'
 // 只用本机已装的 LXGW WenKai；未安装则 CSS 回退到后面的系统字体栈。不走 CDN。
 
+// 官方聊天字体活跃判定（P1 让位检测）：
+// 官方链把 config desktop.font_family 经 resolveChatFontFamily 写进 root.style inline；
+// applyTheme 无条件 paint（未设置时 inline=主题栈），所以不能看"inline 有没有值"，
+// 要看形态：用户字体被 quoteSingleFamily 包成 `'UserFont', <主题栈>`（单引号开头），
+// 未设置时以 `"Segoe WPC"…`（SYSTEM_SANS，双引号）或主题自定义栈开头。
+// 已知盲区：用户手填完整 CSS stack 且以双引号开头会漏判——power user 行为，其自
+// 知覆盖关系，接受。
+function officialChatFontActive() {
+  try {
+    return /^\s*'/.test(document.documentElement.style.getPropertyValue('--dt-font-sans'))
+  } catch { return false }
+}
+
 function applyFont() {
   let style = document.getElementById(FONT_STYLE_ID)
   if (!style) {
@@ -438,12 +451,32 @@ function applyFont() {
     style.id = FONT_STYLE_ID
     document.head.appendChild(style)
   }
+  // !important 必须保留：官方 applyTheme 把 --dt-font-sans（含主题默认栈）无条件
+  // 写进 root.style inline，样式表普通声明永远输给 inline——去感叹号=文楷永不动。
+  // 与官方「聊天字体」自定义的优先级冲突由本函数动态让位解决：检测到官方活跃时
+  // 省略 sans 声明，root.style 变化由 watchOfficialChatFont 再入本函数——用户显式
+  // 配置 > 一键策展。mono/tooltip 不让位：官方链不碰这两处（tooltip chip 是官方
+  // 故意硬编码 Arial 的 11px 小字，v2 起 hub 就有意覆盖），继续跟随开关。
+  const sansDecl = officialChatFontActive() ? '' : '--dt-font-sans:' + FONT_SANS + ' !important;'
   style.textContent =
-    ':root{--dt-font-sans:' + FONT_SANS + ' !important;' +
-    '--dt-font-mono:' + FONT_MONO + ' !important}' +
-    // tooltip 的 chip 硬编码了 [font-family:Arial,sans-serif]（tooltip.tsx），不走变量继承，
-    // 需用 data-slot 定位覆盖，否则提示文字永远系统字体。
-    '[data-slot="tooltip-content"] > span{font-family:var(--dt-font-sans) !important}'
+    ':root{' + sansDecl +
+    '--dt-font-mono:' + FONT_MONO + ' !important;' +
+    '--hub-ui-font:' + FONT_SANS + '}' +
+    '[data-slot="tooltip-content"] > span{font-family:var(--hub-ui-font) !important}'
+}
+
+// 官方聊天字体编辑监听：applyTheme 每次改 root.style inline 都触发 → 重放注入层
+// （让位/恢复全自动）。fontObserver 常驻（register 挂、dispose 摘），与弹窗无关。
+let fontObserver = null
+function watchOfficialChatFont() {
+  if (fontObserver) return
+  fontObserver = new MutationObserver(() => {
+    if (ctxRef && ctxRef.storage.get(FONT_KEY, false)) applyFont()
+  })
+  fontObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] })
+}
+function unwatchOfficialChatFont() {
+  if (fontObserver) { fontObserver.disconnect(); fontObserver = null }
 }
 
 function removeFont() {
@@ -1348,7 +1381,7 @@ function AppearancePanel() {
       return resolveBookField(raw, 'scope', resolvedDark())
     } catch { return 'window' }
   })
-  const [font, setFont] = useState(() => ctxRef.storage.get(FONT_KEY, true))
+  const [font, setFont] = useState(() => ctxRef.storage.get(FONT_KEY, false))
   const [zoom, setZoomState] = useState(() => '90')
   const [introOn, setIntroOn] = useState(() => {
     try { return localStorage.getItem(INTRO_NATIVE_KEY) !== 'false' } catch { return true }
@@ -1531,6 +1564,15 @@ function AppearancePanel() {
   }
 
     const toggleFont = (next) => {
+    // 官方「聊天字体」已自定义时点「开」= 让位（注入层 sans 省略，开关亮而无视觉效果）。
+    // 不禁止点击：官方值清空/改回主题栈后 observer 自动接管恢复文楷。
+    // 探针（error 级才落盘）：本轮本地测试用，核对让位判定与 inline 实际形态
+    console.error('[appearance-hub] font toggle → ' + next +
+      ' officialActive=' + officialChatFontActive() +
+      ' inline=[' + document.documentElement.style.getPropertyValue('--dt-font-sans') + ']')
+    if (next && officialChatFontActive()) {
+      host.notify({ kind: 'info', message: ctxRef.i18n.t('font.desc') })
+    }
     setFont(next)
     ctxRef.storage.set(FONT_KEY, next)
     if (next) applyFont()
@@ -2095,9 +2137,12 @@ export default {
       // 非响应式翻译器（register 时求值一次；语言切换后需重启更新状态栏文字）
       const ti18n = ctx.i18n.t
 
-      // 按持久化状态初始化（默认开启，与原插件行为一致）
+      // 按持久化状态初始化。纸纹默认开（原插件继承），字体默认关（v3.1：官方已有
+      // 聊天字体自定义，一键策展不默认劫持；老用户存档不受影响，仅新装机默认翻转）
       if (ctx.storage.get(PAPER_KEY, true)) injectPaper()
-      if (ctx.storage.get(FONT_KEY, true)) applyFont()
+      if (ctx.storage.get(FONT_KEY, false)) applyFont()
+      // 官方聊天字体编辑监听常驻：开关开着时官方 inline 变化 → applyFont 让位/恢复
+      watchOfficialChatFont()
       // 消息气泡：兜插件重载场景，按官方键恢复 CSS 变量（官方 app 启动已自恢复，幂等）
       applyUserBubble((() => { try { return localStorage.getItem(USER_BUBBLE_KEY) || 0 } catch { return 0 } })())
       injectBinshaoTheme()
@@ -2134,6 +2179,7 @@ export default {
         langObserver.disconnect()
         removePaper()
         removeFont()
+        unwatchOfficialChatFont()
         resetIntroOnDispose()
         if (typeof zoomUnsubscribeNative === 'function') zoomUnsubscribeNative()
         zoomUnsubscribeNative = null
