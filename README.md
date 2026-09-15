@@ -85,7 +85,7 @@ git clone https://github.com/Heybinshao/hermes-appearance-hub ~/.hermes/desktop-
 字体需装到系统：到 [lxgw/LxgwWenKai](https://github.com/lxgw/LxgwWenKai) 下载 Regular 和 Mono，装好后重载插件。没装则界面回退系统默认字体。
 
 > 如果 Hermes 使用了非默认 profile，插件目录是 `~/.hermes/profiles/<name>/desktop-plugins/`。
-> 不确定时在桌面端 Settings → Plugins 里查看插件目录路径。
+> 不确定时在桌面端「技能与工具 → 插件」里查看插件目录路径。
 
 ## 使用
 
