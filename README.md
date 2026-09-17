@@ -1,4 +1,4 @@
-# Hermes Appearance Hub ![版本](https://img.shields.io/badge/版本-v3.1.0-blue)
+# Hermes Appearance Hub ![版本](https://img.shields.io/badge/版本-v3.2.0-blue)
 
 给 Hermes 桌面端用的**外观整合插件**：把散在官方设置页各处的外观与对话行为开关，连同纸纹模拟、霞鹜文楷、Binshao 主题等独有能力，收进状态栏一个浮窗——悬停即见说明，改动即时生效，省掉翻设置页的路径。
 
@@ -67,20 +67,37 @@
 
 ## 安装
 
+### 方式一：官方插件目录（推荐）
+
+```bash
+hermes plugins install hermes-appearance-hub
+```
+
+装完重启 Hermes 桌面端（⌘Q 后重新打开）即可。升级：
+
+```bash
+hermes plugins update hermes-appearance-hub
+```
+
+> 目录条目钉在某个已评审的 commit 上——作者仓库的后续提交不会自动进目录，实际装到的版本以插件卡片上的版本号为准。
+
+### 方式二：让 Hermes 帮你装（顺带装字体）
+
 把下面这句话直接发给 Hermes 就行：
 
 ```
 从 Git 安装这个桌面插件：https://github.com/Heybinshao/hermes-appearance-hub ，顺便去 https://github.com/lxgw/LxgwWenKai 下载 Regular 和 Mono 字体装到系统，装好后重载插件并告诉我怎么用
 ```
 
-Hermes 会把仓库 clone 进 `~/.hermes/desktop-plugins/`（留下 Git 来源记录，升级时重做一遍上述安装即可拉最新版），再下载安装字体并重载，无需手动操作。
+这条路径装的是仓库当前提交（没有经过目录评审）；升级方式：重做一遍上述安装，弹窗里勾「强制重装」。
 
-手动安装（等价方式）：
+### 方式三：手动放置
 
-```bash
-# 把插件目录复制到 Hermes 桌面插件目录
-git clone https://github.com/Heybinshao/hermes-appearance-hub ~/.hermes/desktop-plugins/hermes-appearance-hub
-```
+1. 下载本仓库的 [`desktop/plugin.js`](desktop/plugin.js)
+2. 放到 `~/.hermes/desktop-plugins/hermes-appearance-hub/plugin.js`（目录不存在就创建）
+3. 重启 Hermes 桌面端（⌘Q 后重新打开）
+
+> ⚠️ 插件入口在仓库的 `desktop/` 子目录里，别把整个仓库 clone 进 `~/.hermes/desktop-plugins/`——多出一层目录，宿主就找不到入口文件了。
 
 字体需装到系统：到 [lxgw/LxgwWenKai](https://github.com/lxgw/LxgwWenKai) 下载 Regular 和 Mono，装好后重载插件。没装则界面回退系统默认字体。
 
@@ -109,7 +126,13 @@ git clone https://github.com/Heybinshao/hermes-appearance-hub ~/.hermes/desktop-
 
 ## 卸载
 
-删除插件目录 + 重启桌面端：
+目录装的：
+
+```bash
+hermes plugins remove hermes-appearance-hub
+```
+
+手动装的：删除插件目录 + 重启桌面端：
 
 ```bash
 rm -rf ~/.hermes/desktop-plugins/hermes-appearance-hub

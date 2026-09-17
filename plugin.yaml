@@ -1,0 +1,14 @@
+name: hermes-appearance-hub
+version: 3.2.0
+description: "One status-bar panel for Hermes Desktop appearance: 12 themes, paper texture, LXGW WenKai font, window translucency, splash branding and the chat-behaviour switches — hover any row for its description, every change applies live."
+author: Heybinshao
+license: MIT
+homepage: https://github.com/Heybinshao/hermes-appearance-hub
+tags: [desktop, theme, appearance, i18n]
+# Desktop-only package: the UI lives in desktop/plugin.js and registers nothing
+# on the agent side (no tools, hooks, middleware or env vars).
+provides_tools: []
+provides_hooks: []
+capabilities: []
+requires_env: []
+python_dependencies: []
