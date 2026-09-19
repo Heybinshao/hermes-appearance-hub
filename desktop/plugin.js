@@ -522,14 +522,11 @@ function removeFont() {
 const INTRO_SLOT = '[data-slot="aui_intro"]'
 let introObserver = null
 const introOriginalTexts = new Map()   // 叶子元素 → 原始文本（切回原生/禁用时恢复）
-let introNativeLastWritten = null      // 本插件最后写入的原生键值（区分自己写 / 外部改）
-let introUninstallHook = null          // setItem 包装的还原函数
-let introModeSubscribers = new Set()   // 面板订阅者（外部改动时刷新弹窗 UI）
+let introModeSubscribers = new Set()   // 面板订阅者（v3.3.0 起仅 register 初始化时推送一次对齐）
 
 function writeIntroNative(value) {
   try {
     localStorage.setItem(INTRO_NATIVE_KEY, value)
-    introNativeLastWritten = value
   } catch {
     // storage 不可用时静默跳过，注入层不受影响
   }
@@ -564,44 +561,12 @@ function syncIntroSettingSwitch(mode) {
   }
 }
 
-function handleIntroNativeWrite(key, value) {
-  if (key !== INTRO_NATIVE_KEY) return
-  if (value === introNativeLastWritten) {
-    // 自己刚写的：记账已同步，无需反应
-    return
-  }
-  // 新两档语义：开关只控制显隐，不改变 introMode（native/custom 保持不变）。
-  // false = 暂时隐藏注入层；true = 按 hub 当前档位恢复。
-  introNativeLastWritten = value
-  const current = ctxRef ? ctxRef.storage.get(INTRO_MODE_KEY, 'native') : 'native'
-  if (value === 'false') {
-    stopIntroObserver()
-    introRestore()
-    const style = document.getElementById(INTRO_STYLE_ID)
-    if (style) style.remove()
-  } else {
-    applyIntroMode(current)
-  }
-  // 推送给面板的语义 = 最终开/关状态：官方页切关推 'off'（面板跟平到「关」），
-  // 切开推当前档位（面板跟平到存档档位）
-  introModeSubscribers.forEach((cb) => cb(value === 'false' ? 'off' : current))
-}
-
-function installIntroStorageHook() {
-  if (introUninstallHook) return
-  const rawSetItem = Storage.prototype.setItem
-  Storage.prototype.setItem = function (key, value) {
-    rawSetItem.call(this, key, value)
-    try { handleIntroNativeWrite(String(key), String(value)) } catch {}
-  }
-  introUninstallHook = () => { Storage.prototype.setItem = rawSetItem }
-}
-
 function unsubscribeIntroMode(cb) {
   introModeSubscribers.delete(cb)
 }
 
-// 面板实例订阅（弹窗开时加入）：外部在设置页切开关时，浮窗高亮跟着走
+// 面板实例订阅（弹窗开时加入）：v3.3.0 合规改造后无实时推送源，保留接口
+// （register 初始化时可推送一次对齐；官方设置页的改动降级为重启后跟平）
 function subscribeIntroMode(cb) {
   introModeSubscribers.add(cb)
   return unsubscribeIntroMode
@@ -663,29 +628,8 @@ function stopIntroObserver() {
 }
 
 function applyIntroMode(mode) {
-  // 官方 atom 通道（优先）：直接驱动 $introSplash（官方订阅链：设置页 UI/React
-  // 渲染/落盘全同步）。必须先记账再 set——atom.set 会经官方 persistBoolean 落盘
-  // 触发 setItem 钩子，后记账会被误判为外部改动。
-  const introAtom = officialStores && officialStores.introSplash
-  if (introAtom) {
-    try {
-      introNativeLastWritten = mode === 'off' ? 'false' : 'true'
-      introAtom.set(mode !== 'off')
-      if (mode === 'custom') {
-        const headline = ctxRef ? String(ctxRef.storage.get(INTRO_HEADLINE_KEY, '')).trim() : ''
-        const tagline = ctxRef ? String(ctxRef.storage.get(INTRO_TAGLINE_KEY, '')).trim() : ''
-        introWrite(headline, tagline)   // 当前已在渲染的 intro 立即替换
-        startIntroObserver()            // 之后新渲染 / 被写回的交给 observer
-      } else {
-        stopIntroObserver()
-        introRestore()
-      }
-      return
-    } catch {
-      // atom 调用失败 → 落入下方 CSS 兜底路径
-    }
-  }
-  // ── 兜底路径（atom 未识别/抛错）：CSS 注入隐藏 + 程序化点击同步官方设置页 ──
+  // v3.3.0：官方 atom 通道与 setItem 钩子已移除（规则 8 合规），唯一路径 =
+  // CSS 注入即时显隐 + 原生键落盘（重启后一致）+ 程序化点击同步官方设置页。
   let style = document.getElementById(INTRO_STYLE_ID)
   if (mode === 'off') {
     if (!style) {
@@ -708,18 +652,13 @@ function applyIntroMode(mode) {
     introRestore()
   }
 
-  // 原生键落盘：原生/自定义 = 开；关闭 = 关。先记账再写键，避免钩子误判。
-  introNativeLastWritten = mode === 'off' ? 'false' : 'true'
+  // 原生键落盘：原生/自定义 = 开；关闭 = 关
   writeIntroNative(mode === 'off' ? 'false' : 'true')
   // 设置页开关若正开着，程序化点击对齐（走原生 onCheckedChange，atom+滑块真实更新）
   syncIntroSettingSwitch(mode)
 }
 
 function resetIntroOnDispose() {
-  if (introUninstallHook) {
-    introUninstallHook()
-    introUninstallHook = null
-  }
   introModeSubscribers.clear()
   stopIntroObserver()
   introRestore()
@@ -851,185 +790,12 @@ function writeSimpleKey(key, value) {
   } catch {}
 }
 
-// ── 悬浮输入框 atom 的静态源码指纹反解 ──────────────────────────────
-// 官方 $composerPopoutGesturesEnabled 无 persist 订阅（翻转零写入），行为探针
-// 与其他零写入 atom 撞车不可靠；但它从键名到导出的变量链是固定的：
-//   mn=`键串` → _n=P(mn,!0) → wn=t(_n) → export { wn as X }
-// 键串在全 chunk 唯一，反解稳定。返回导出名或 null（失败退回行为认领/直写）。
-function findGesturesAtomExport(src) {
-  try {
-    const key = POPOUT_KEY.replace(/\./g, '\\.')
-    const m1 = src.match(new RegExp('([A-Za-z_$][\\w$]*)\\s*=\\s*[`"\']' + key + '[`"\']'))
-    if (!m1) return null
-    const keyVar = m1[1]
-    const m2 = src.match(new RegExp('([A-Za-z_$][\\w$]*)\\s*=\\s*[A-Za-z_$][\\w$]*\\(\\s*' + keyVar + '\\s*,\\s*(?:!0|true)\\s*\\)'))
-    if (!m2) return null
-    const seedVar = m2[1]
-    // atom 包装在种子声明后不远处（同一 var 列表）；窗口限定避免全文误配
-    const win = src.slice(m2.index + m2[0].length, m2.index + 4000)
-    const m3 = win.match(new RegExp('([A-Za-z_$][\\w$]*)\\s*=\\s*[A-Za-z_$][\\w$]*\\(\\s*' + seedVar + '\\s*\\)'))
-    if (!m3) return null
-    const atomVar = m3[1]
-    const exp = src.match(/export\s*\{([^}]*)\}/)
-    if (!exp) return null
-    for (const pair of exp[1].split(',')) {
-      const parts = pair.trim().split(/\s+as\s+/)
-      if (parts[0] === atomVar) return (parts[1] || parts[0]).trim()
-    }
-    return null
-  } catch { return null }
-}
-
-// ── 官方 store 实时通道：动态 import 官方 chunk，直接调 nanostores atom ──
-let officialStores = null
-
-async function loadOfficialStores() {
-  officialStores ??= {}
-  let foundBoolAtoms = null
-  try {
-    // 1) 从 DOM script 标签拿主 bundle URL（assets 同目录）
-    const scriptEl = document.querySelector('script[src*="index-"]')
-    if (!scriptEl) return officialStores
-    const mainUrl = new URL(scriptEl.src, location.href)
-    const base = new URL('./', mainUrl)
-    // 2) fetch 主 bundle 抠出 chunk 文件名
-    const mainSrc = await (await fetch(mainUrl)).text()
-    // density chunk
-    const m1 = mainSrc.match(/([\w-]*session-list-density-[A-Za-z0-9_-]+\.js)/)
-    if (m1 && !officialStores.probed) {
-      try {
-        const chunkUrl = new URL('./' + m1[1], base).href
-        const chunkSrc = await (await fetch(chunkUrl)).text()
-        const mod = await import(/* @vite-ignore */ chunkUrl)
-        officialStores.probed = true   // 探测完整执行过一次才标记（fetch/import 失败保留下次重试机会）
-        // ── 悬浮输入框：静态源码指纹反解认领（零翻转零闪烁），失败留待行为兜底 ──
-        if (!officialStores.popoutGestures) {
-          const gExport = findGesturesAtomExport(chunkSrc)
-          const gAtom = gExport && mod[gExport]
-          if (gAtom && typeof gAtom.get === 'function' && typeof gAtom.set === 'function' && typeof gAtom.get() === 'boolean') {
-            officialStores.popoutGestures = gAtom
-            console.error('[appearance-hub] ✅ popoutGestures 静态认领 via export ' + gExport)
-          }
-        }
-        for (const k of Object.keys(mod)) {
-          const v = mod[k]
-          if (!v || typeof v.get !== 'function' || typeof v.set !== 'function') continue
-          const cur = v.get()
-          if (cur === 'compact' || cur === 'comfortable' || cur === 'detailed') {
-            if (!officialStores.density) officialStores.density = v
-            continue
-          }
-          // 字符串枚举 atom：值域互斥即身份（toolView/embedMode/appActions）。
-          // tabStrip('auto'|'always'|'never') 不在此 chunk，无 'always' 撞值风险。
-          if (cur === 'product' || cur === 'technical') { officialStores.toolViewMode ??= v; continue }
-          if (cur === 'ask' || cur === 'always' || cur === 'off') { officialStores.embedMode ??= v; continue }
-          if (cur === 'left' || cur === 'right') { officialStores.appActions ??= v; continue }
-          // 收集 boolean atom（backdrop / intro-splash / reasoning / 命令面板开关等；
-          // 静态已认领的 gestures atom 不重复入池）
-          if (typeof cur === 'boolean' && v !== officialStores.popoutGestures) {
-            if (!foundBoolAtoms) foundBoolAtoms = []
-            foundBoolAtoms.push(v)
-          }
-        }
-        // ── boolean atom 全量翻转扫描：一次遍历认领 backdrop / intro-splash /
-        // reasoning 三个带 persist 订阅的 atom（翻转引发目标键写入即命中），
-        // 同时记录「翻转不引发任何 localStorage 写入」的 atom——
-        // $composerPopoutGesturesEnabled 无 persist 订阅，翻转零写入，是唯一
-        // 可靠区分特征（reactions/tips 等虽有订阅但写自己的键，计入写入）。
-        // 探测期间临时隐藏开场标识 DOM 防闪烁，并抑制 setItem 钩子
-        // （防止 intro-splash atom 被翻转时误移除自定义注入层）。
-        const introEl = document.querySelector('[data-slot="aui_intro"]')
-        const prevVis = introEl ? introEl.style.visibility : ''
-        if (introEl) introEl.style.visibility = 'hidden'
-        if (introUninstallHook) {
-          introUninstallHook()
-          introUninstallHook = null
-        }
-        if (foundBoolAtoms && foundBoolAtoms.length) {
-          const snapshot = foundBoolAtoms.map(a => a.get())
-          let writeCount = 0
-          const flippedKeys = []
-          const rawSI = Storage.prototype.setItem
-          Storage.prototype.setItem = function (...args) { writeCount++; flippedKeys.push(String(args[0])); return rawSI.apply(this, args) }
-          const zeroWrite = []
-          const probeDetail = []
-          const watchKeys = [
-            ['backdrop', BACKDROP_KEY],
-            ['introSplash', INTRO_NATIVE_KEY],
-            ['reasoningCollapsed', REASONING_KEY]
-          ]
-          const baseline = Object.fromEntries(watchKeys.map(([, k]) => [k, localStorage.getItem(k)]))
-          const nextFrame = () => new Promise((r) => setTimeout(r, 0))
-          try {
-            for (let bi = 0; bi < foundBoolAtoms.length; bi++) {
-              const a = foundBoolAtoms[bi]
-              const wroteBefore = writeCount
-              a.set(!snapshot[bi])
-              await nextFrame()   // 官方 persist 有 microtask/帧级节流，等它 flush 再读键
-              const wroteKeys = flippedKeys.slice(wroteBefore)
-              const wroteZero = wroteKeys.length === 0
-              let hitKey = null
-              for (const [name, k] of watchKeys) {
-                const now = localStorage.getItem(k)
-                if (now !== baseline[k]) {
-                  baseline[k] = now        // 滚动基线：已被认领的 atom 不再干扰后续比对
-                  if (!officialStores[name]) hitKey = name
-                }
-              }
-              a.set(snapshot[bi])   // 还原（persist 随之写回原值）
-              await nextFrame()     // 等还原的写盘也 flush，避免污染下一 atom 的比对
-              probeDetail.push(snapshot[bi] + '|' + wroteKeys.join('+') + (hitKey ? '>' + hitKey : ''))
-              if (hitKey) officialStores[hitKey] = a
-              else if (wroteZero) zeroWrite.push(bi)
-            }
-          } finally {
-            Storage.prototype.setItem = rawSI
-          }
-          // popout gestures：零写入候选 + 值匹配（键存在时对照键值，缺省 true）。
-          // 仅唯一命中才认领；多义/零命中 = 放弃（面板退回 localStorage 直写，重启生效）
-          if (!officialStores.popoutGestures) {
-            let want = true
-            try { const k = localStorage.getItem(POPOUT_KEY); if (k === 'false') want = false } catch {}
-            const cands = zeroWrite.filter((i) => snapshot[i] === want)
-            if (cands.length === 1) officialStores.popoutGestures = foundBoolAtoms[cands[0]]
-            // 诊断：认领失败时打印候选构成，定位是零写入 atom 过多还是过少
-            else console.error('[appearance-hub] popout claim failed: want=' + want +
-              ' zeroWrite=[' + zeroWrite.join(',') + '] boolTotal=' + snapshot.length +
-              ' detail=[' + probeDetail.join(' ;; ') + ']')
-          }
-          for (const key of ['backdrop', 'introSplash', 'reasoningCollapsed', 'popoutGestures']) {
-            if (officialStores[key]) {
-              if (!officialStores._recognized) officialStores._recognized = []
-              officialStores._recognized.push(key)
-            }
-          }
-          // 探针走 error 级——renderer console.info 不落盘，只有 error 可事后 grep
-          console.error('[appearance-hub] probe done: string-atoms=[' +
-            ['toolViewMode', 'embedMode', 'appActions'].filter((k) => officialStores[k]).join(',') +
-            '] bool-atoms=[' + (officialStores._recognized || []).join(',') + ']')
-        }
-        // 恢复开场标识可见性 + 重装 setItem 钩子
-        if (introEl) introEl.style.visibility = prevVis
-        installIntroStorageHook()
-      } catch {}
-    }
-    // store chunk（tabStrip）
-    const chunks = [...mainSrc.matchAll(/([\w-]*store-[A-Za-z0-9_-]+\.js)/g)].map(m2 => m2[1])
-    for (const name of chunks) {
-      if (officialStores.tabStrip) break
-      try {
-        const mod = await import(/* @vite-ignore */ new URL('./' + name, base).href)
-        for (const k of Object.keys(mod)) {
-          const v = mod[k]
-          if (!v || typeof v.get !== 'function' || typeof v.set !== 'function') continue
-          const cur = v.get()
-          if (cur === 'auto' || cur === 'always' || cur === 'never') { officialStores.tabStrip = v; break }
-        }
-      } catch {}
-    }
-  } catch {}
-  return officialStores
-}
+// ── v3.3.0 合规改造：官方 atom 实时通道整段移除 ─────────────────────
+// 原版在这里动态 import 官方 bundle chunk、翻转探测认领 nanostores atom 做实时
+// 生效，违反插件目录准入规则 8（desktop surface lint：禁原型补丁/禁动态 import SDK
+// 之外模块）。以下所有官方设置项统一降级为 localStorage 直写 + 补发 storage 事件：
+// 订阅型键重启生效，tabStrip 下次 pane 树重渲染生效。官方若在 SDK 提供设置项
+// 读写/订阅网关（catalog PR #114155 讨论中），此注释处即回迁点。
 
 function readBackdrop() {
   try { return localStorage.getItem(BACKDROP_KEY) === 'true' } catch { return false }
@@ -1336,48 +1102,28 @@ function AppearancePanel() {
 
   const changeToolViewMode = (id) => {
     setToolViewModeState(id)
-    loadOfficialStores().then((s) => {
-      if (s?.toolViewMode) s.toolViewMode.set(id)
-      else writeBoolKey(TOOL_VIEW_KEY, id === 'technical')   // 直写 = 重启后生效
-    })
+    writeBoolKey(TOOL_VIEW_KEY, id === 'technical')   // 直写 = 重启后生效
     haptic('tap')
   }
   const changeReasoning = (on) => {
     setReasoningState(on)
-    loadOfficialStores().then((s) => {
-      if (s?.reasoningCollapsed) s.reasoningCollapsed.set(on)
-      else writeBoolKey(REASONING_KEY, on)
-    })
+    writeBoolKey(REASONING_KEY, on)
     haptic('tap')
   }
   const changeEmbedMode = (id) => {
     setEmbedModeState(id)
-    loadOfficialStores().then((s) => {
-      // embedMode 是 persistentAtom——set 即写穿官方键 + 全窗口即时生效
-      if (s?.embedMode) s.embedMode.set(id)
-      else writeSimpleKey(EMBED_MODE_KEY, id)
-    })
+    writeSimpleKey(EMBED_MODE_KEY, id)
     haptic('tap')
   }
   const changePopout = (on) => {
     setPopoutState(on)
-    loadOfficialStores().then((s) => {
-      // 官方导出函数三件事：atom set（即时）+ persistBoolean 落盘 + 关时清 zones。
-      // hub 等价复刻取二：atom.set 即时生效（use-composer-popout 里
-      // poppedOut && gesturesEnabled——关手势时浮框自动归位停靠）+ 同键直写落盘
-      // （'true'/'false' 与官方 persistBoolean 同格式）。zone.poppedOut 存档不清，
-      // 与官方的差异仅在「关了再开，浮框位置复活」——边缘场景，接受。
-      if (s?.popoutGestures) s.popoutGestures.set(on)
-      writeBoolKey(POPOUT_KEY, on)
-    })
+    // v3.3.0：原经官方 atom 即时停靠浮框，合规降级为同键直写（重启生效）
+    writeBoolKey(POPOUT_KEY, on)
     haptic('tap')
   }
   const changeAppActions = (id) => {
     setAppActionsState(id)
-    loadOfficialStores().then((s) => {
-      if (s?.appActions) s.appActions.set(id)
-      else writeSimpleKey(APP_ACTIONS_KEY, id)
-    })
+    writeSimpleKey(APP_ACTIONS_KEY, id)
     haptic('tap')
   }
   const [translucencyMode, setTranslucencyModeState] = useState(() => {
@@ -1512,29 +1258,19 @@ function AppearancePanel() {
 
   const setDensity = (id) => {
     setDensityState(id)
-    loadOfficialStores().then((s) => {
-      if (s?.density) s.density.set(id)
-      else writeSimpleKey(DENSITY_KEY, id)
-    })
+    writeSimpleKey(DENSITY_KEY, id)
     haptic('tap')
   }
 
   const setTabStrip = (id) => {
     setTabStripState(id)
-    loadOfficialStores().then((s) => {
-      if (s?.tabStrip) s.tabStrip.set(id)
-      else writeSimpleKey(TABSTRIP_KEY, id)
-    })
+    writeSimpleKey(TABSTRIP_KEY, id)   // 官方消费方渲染时读值，重渲染/重启后生效
     haptic('tap')
   }
 
   const toggleBackdrop = (on) => {
     setBackdropState(on)
-    loadOfficialStores().then((s) => {
-      // 官方 atom 实时切换界面（Backdrop.tsx 直接订阅此 atom）
-      if (s?.backdrop) s.backdrop.set(on)
-      else writeBackdrop(on)
-    })
+    writeBackdrop(on)
     haptic('tap')
   }
 
@@ -2173,11 +1909,9 @@ export default {
       // 消息气泡：兜插件重载场景，按官方键恢复 CSS 变量（官方 app 启动已自恢复，幂等）
       applyUserBubble((() => { try { return localStorage.getItem(USER_BUBBLE_KEY) || 0 } catch { return 0 } })())
       injectBinshaoTheme()
-      // 开场标识：先与原生键对账，再按最终状态恢复注入；
-      // 挂 setItem 钩子后，设置页开关改动即时推送过来（与缩放 onChanged 同款推送模型）
+      // 开场标识：先与原生键对账，再按最终状态恢复注入
+      // （v3.3.0：setItem 实时推送钩子已移除——官方设置页的改动重启后跟平）
       try {
-        const nativeVal = localStorage.getItem(INTRO_NATIVE_KEY)
-        if (nativeVal != null) introNativeLastWritten = nativeVal
         // 'off' 不作为持久档位（开/关由原生键承载）：历史遗留的 off 存档还原为
         // native，native/custom 存档必须保留——否则 hub 关闭后重启，「开」无从恢复原档位
         if (ctx.storage.get(INTRO_MODE_KEY, 'native') === 'off') {
@@ -2192,14 +1926,10 @@ export default {
           return ctx.storage.get(INTRO_MODE_KEY, 'native') === 'custom' ? 'custom' : 'native'
         })()
       )
-      installIntroStorageHook()
       // 界面缩放走原生机制（window.hermesDesktop.zoom）。
       // 挂模块级常驻监听：与弹窗开关无关，保证 Settings / View 菜单 / Cmd± 改缩放时
       // 反向同步（哪怕 hub 弹窗此刻没开，下次打开也已是最新值）。
       startNativeZoomWatch()
-      // 预热官方 store 识别（后台异步，启动时闪烁不可见）：
-      // 避免用户首次点聊天背景时键验证法探测导致开场标识闪动
-      loadOfficialStores().catch(() => {})
 
       // 卸载/重载时清理注入，不留残留
       ctx.onDispose(() => {
