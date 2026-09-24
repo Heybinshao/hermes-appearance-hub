@@ -367,10 +367,19 @@ function settingSubscribe(key, cb) {
 
 // 网关对非白名单键同步抛 Unsupported desktop setting → 探测式判支持面：
 // 门扩了名单，面板对应行自动解禁，无需再改插件代码
+// v4 修：结果按 key 记忆——官方 bindingFor 对未入名单键是 throw（自带栈采集），
+// 面板一次渲染 9 处探测会制造 4 次异常风暴（sample 栈 prepare_stack_trace 热点
+// 实证）。名单是构建期静态表，会话内不会变，缓存安全。
+const _hasGate = new Map()
 function settingHas(key) {
+  if (_hasGate.has(key)) return _hasGate.get(key)
   const sg = settingsGateway()
-  if (!sg) return false
-  try { sg.get(key); return true } catch { return false }
+  let ok = false
+  if (sg) {
+    try { sg.get(key); ok = true } catch { ok = false }
+  }
+  _hasGate.set(key, ok)
+  return ok
 }
 
 // 网关键名 ≠ localStorage 键名（#116338 白名单用短名），集中映射一份
@@ -577,6 +586,11 @@ const introOriginalTexts = new Map()   // 叶子元素 → 原始文本（切回
 let introModeSubscribers = new Set()   // 面板订阅者（v3.3.0 起仅 register 初始化时推送一次对齐）
 
 function writeIntroNative(value) {
+  // v4 迁正门：intro-splash.v1 在官方网关白名单（src/sdk/settings.ts 核实），
+  // setIntroSplash 直改 atom——设置页 useStore($introSplash) 实时跟平、
+  // subscribe 自动落盘，无需再直写键/模拟点击开关（点击同步层已退役）。
+  // 网关缺席（旧桌面端）回落直写原生键保功能。
+  if (settingSet(GK.intro, value === 'true')) return
   try {
     localStorage.setItem(INTRO_NATIVE_KEY, value)
   } catch {
@@ -585,33 +599,11 @@ function writeIntroNative(value) {
 }
 
 // ── 与原生设置页双向同步 ──────────────────────────────────────────
-// 设置页开关 = 真实 DOM 按钮：#setting-field-appearance.intro-splash 内的
-// button[role=switch]（Radix Switch，aria-label=「开场标识」）。
-// 读状态 → aria-checked；写状态 → 程序化 click（走原生 onCheckedChange，
-// atom/滑块/落盘全部真实更新，与手点等价）。
-function findIntroSettingSwitch() {
-  const field =
-    document.getElementById('setting-field-appearance.intro-splash') ||
-    Array.from(document.querySelectorAll('[id^="setting-field-"]')).find((el) =>
-      el.querySelector('button[role="switch"][aria-label="开场标识"]')
-    )
-  return field ? field.querySelector('button[role="switch"]') : null
-}
-
-function readIntroSettingState() {
-  const btn = findIntroSettingSwitch()
-  return btn ? btn.getAttribute('aria-checked') === 'true' : null
-}
-
-// hub 档位变化时，若设置页开关可见且状态不一致，程序化点击对齐
-function syncIntroSettingSwitch(mode) {
-  const btn = findIntroSettingSwitch()
-  if (!btn) return
-  const wantOn = mode !== 'off'
-  if ((btn.getAttribute('aria-checked') === 'true') !== wantOn) {
-    btn.click()
-  }
-}
+// v4 退役：原 findIntroSettingSwitch / readIntroSettingState / syncIntroSettingSwitch
+// 三件套靠 DOM 查询官方设置页开关 + 程序化 click 对齐状态。intro-splash.v1 入
+// 官方网关白名单后（src/sdk/settings.ts），writeIntroNative 走 setIntroSplash
+// 直改 atom，设置页 useStore 实时跟平——点击模拟层整体移除（rule 8 也少一处
+// DOM 触达）。
 
 function unsubscribeIntroMode(cb) {
   introModeSubscribers.delete(cb)
@@ -704,10 +696,9 @@ function applyIntroMode(mode) {
     introRestore()
   }
 
-  // 原生键落盘：原生/自定义 = 开；关闭 = 关
+  // 原生键落盘：原生/自定义 = 开；关闭 = 关（v4：走网关 setIntroSplash，
+  // 官方设置页 atom 订阅实时跟平，原程序化点击对齐层已退役）
   writeIntroNative(mode === 'off' ? 'false' : 'true')
-  // 设置页开关若正开着，程序化点击对齐（走原生 onCheckedChange，atom+滑块真实更新）
-  syncIntroSettingSwitch(mode)
 }
 
 function resetIntroOnDispose() {
@@ -716,10 +707,8 @@ function resetIntroOnDispose() {
   introRestore()
   const style = document.getElementById(INTRO_STYLE_ID)
   if (style) style.remove()
-  // 禁用插件后恢复原生显示
-  try {
-    localStorage.setItem(INTRO_NATIVE_KEY, 'true')
-  } catch {}
+  // 禁用插件后恢复原生显示（v4：走网关，缺席时 writeIntroNative 内部回落直写）
+  writeIntroNative('true')
 }
 
 // ── 界面缩放（直接驱动 Hermes 原生缩放，不另起 DOM 层）──────────────
@@ -1116,6 +1105,8 @@ function AppearancePanel() {
   const [font, setFont] = useState(() => ctxRef.storage.get(FONT_KEY, false))
   const [zoom, setZoomState] = useState(() => '90')
   const [introOn, setIntroOn] = useState(() => {
+    // v4：优先读网关 atom 真值（跨窗口/设置页实时一致），缺席回落直读键
+    if (settingHas(GK.intro)) return settingGet(GK.intro, true) !== false
     try { return localStorage.getItem(INTRO_NATIVE_KEY) !== 'false' } catch { return true }
   })
   const [introMode, setIntroModeState] = useState(() => {
@@ -1884,6 +1875,8 @@ export default {
       } catch {}
       applyIntroMode(
         (() => {
+          // v4：优先读网关 atom 真值，缺席回落直读键
+          if (settingHas(GK.intro)) return settingGet(GK.intro, true) === false ? 'off' : (ctx.storage.get(INTRO_MODE_KEY, 'native') === 'custom' ? 'custom' : 'native')
           try {
             if (localStorage.getItem(INTRO_NATIVE_KEY) === 'false') return 'off'
           } catch {}
