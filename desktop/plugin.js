@@ -1714,9 +1714,10 @@ function AppearancePanel() {
       }),
 
       // 窗口透明（整块 hover 显示总说明；嵌套参数行不再单列文案）
-      // v4.1：透明=裸桥+官方键直写，host.window（issue C）未落 → 整块掐指针+置灰总开关
+      // v4.1：透明=裸桥+官方键直写，host.window（issue C）未落 → 统一置灰。
+      // 口径与应用操作行一致：容器不掐指针（hover 提示照常），控件逐个 disabled；
+      // ⚠ pointerEvents:none 会连容器自己的 onMouseEnter 一起杀死（首版踩坑）。
       jsxs('div', {
-        style: { pointerEvents: windowOk ? undefined : 'none' },
         onMouseEnter: () => hover(windowOk ? 'translucency.desc' : 'gateNote.unavailable'),
         className: 'flex flex-col gap-1.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
         children: [
@@ -1731,6 +1732,7 @@ function AppearancePanel() {
                 ],
                 value: translucencyMode,
                 onChange: changeTranslucencyMode,
+                disabled: !windowOk,
                 className: 'shrink-0'
               })
             ]
@@ -1747,6 +1749,7 @@ function AppearancePanel() {
                   step: 1,
                   value: intensity,
                   onChange: (e) => changeIntensity(Number(e.target.value)),
+                  disabled: !windowOk,
                   style: SLIDER_STYLE,
                   className: 'min-w-0 flex-1 cursor-pointer',
                   'aria-label': '透明强度'
@@ -1775,6 +1778,7 @@ function AppearancePanel() {
                         step: 1,
                         value: fade,
                         onChange: (e) => changeFade(Number(e.target.value)),
+                        disabled: !windowOk,
                         style: SLIDER_STYLE,
                         className: 'min-w-0 flex-1 cursor-pointer',
                         'aria-label': '淡出'
@@ -1793,6 +1797,7 @@ function AppearancePanel() {
                     options: GLASS_MATERIALS.map((m3) => ({ id: m3, label: t(FROST_LABELS[m3]) })),
                     value: glassMaterial,
                     onChange: setGlassMaterial,
+                    disabled: !windowOk,
                     className: 'w-full'
                   })
                 }),
@@ -1802,6 +1807,7 @@ function AppearancePanel() {
                     options: GLASS_SCOPES.map((s3) => ({ id: s3, label: t(SCOPE_LABELS[s3]) })),
                     value: glassScope,
                     onChange: setGlassScope,
+                    disabled: !windowOk,
                     className: 'w-full'
                   })
                 })
@@ -1840,8 +1846,8 @@ function AppearancePanel() {
             className: 'flex flex-col gap-1.5',
             children: [
               jsx('div', {
+                // 同 BehaviorRow 口径：控件 disabled、容器不掐指针（hover 出提示）
                 onMouseEnter: () => hover(introTextDoorOk() ? 'intro.modeDesc' : 'gateNote.unavailable'),
-                style: { pointerEvents: introOn && introTextDoorOk() ? undefined : 'none' },
                 children: jsx(SegmentedControl, {
                   options: INTRO_OPTIONS.map((o) => ({ ...o, label: label(o) })),
                   value: introMode,
