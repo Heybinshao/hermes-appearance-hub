@@ -995,8 +995,14 @@ function injectBinshaoPatchCss() {
 }
 
 // v4：皮肤清单/读写全部交给官方门（useTheme().availableThemes + setTheme），
-// 硬编码 12 项清单与 theme-v2/profile-themes 键直写一并退役——官方安装的用户
-// 主题与 THEMES_AREA 贡献主题（含 Binshao）现在自动出现在网格里。
+// 硬编码清单与 theme-v2/profile-themes 键直写一并退役——官方安装的用户主题与
+// THEMES_AREA 贡献主题（含 Binshao）自动出现在网格里。官方 availableThemes 的
+// 内置序（nous-alt 第 6、slate/cyberpunk 互换）与 hub 旧网格序不同，用户拍板
+// 保留旧序：已知 12 项按老序排前，其余（用户新装/其他贡献）维持官方序缀后。
+const THEME_ORDER = ['nous', 'nous-alt', 'github', 'catppuccin', 'everforest',
+  'solarized', 'midnight', 'ember', 'mono', 'cyberpunk', 'slate', 'binshao']
+const themeRank = (n) => { const i = THEME_ORDER.indexOf(n); return i < 0 ? Infinity : i }
+const sortedThemes = (list) => [...(list || [])].sort((a, b) => themeRank(a.name) - themeRank(b.name))
 
 
 
@@ -1384,7 +1390,7 @@ function AppearancePanel() {
             'div',
             {
               style: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '4px', padding: '0' },
-              children: availableThemes.map((th) =>
+              children: sortedThemes(availableThemes).map((th) =>
                 jsx(
                   'button',
                   {
