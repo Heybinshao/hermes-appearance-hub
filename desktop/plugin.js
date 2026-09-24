@@ -13,7 +13,7 @@
  *       状态栏入口用 declarative data 通道（variant:'menu' + menuContent），
  *       不自定义 Popover —— 与核心状态栏工具同一条渲染路径，最稳。
  */
-import { haptic, host, icons, SegmentedControl, Input, Textarea, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, usePluginI18n, useI18n } from '@hermes/plugin-sdk'
+import { haptic, host, icons, SegmentedControl, Input, Textarea, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, usePluginI18n, useI18n, useTheme, THEMES_AREA } from '@hermes/plugin-sdk'
 import { useState, useEffect, useRef } from 'react'
 import { jsx, jsxs } from 'react/jsx-runtime'
 
@@ -186,7 +186,6 @@ const ZOOM_OPTIONS = [
   { id: '175', label: '175%', percent: 175 }
 ]
 
-const PAPER_LAYER_ID = ID + '-paper'
 const FONT_STYLE_ID = ID + '-font-style'
 
 // ── 开场标识（intro splash）─────────────────────────────────────────
@@ -339,9 +338,25 @@ const INTRO_OPTIONS = [
 ]
 
 let ctxRef = null
-let paperObserver = null
 
 // ── 纸纹 ────────────────────────────────────────────────────────
+// v4：纯 CSS 通道——占 html::before 伪元素（官方样式表核实无保留，z-index 顶格 +
+// pointer-events:none 维持原覆盖语义）。配方进 CSS 自定义属性（--hub-paper-*），
+// 切换明暗/改配方只 setProperty 三个变量，无 DOM 挂载、无 MutationObserver。
+// ⚠ 待 T7 实测：官方窗口设了 backgroundStyle:fullscreen 毛玻璃材质（Electron NS
+//   VisualEffectView 在 Web 内容背后），若纹理透出则成立；不透明则加 backdrop-filter 兜底。
+const PAPER_STYLE_ID = ID + '-paper-style'
+
+function paperStyleEl() {
+  let style = document.getElementById(PAPER_STYLE_ID)
+  if (!style) {
+    style = document.createElement('style')
+    style.id = PAPER_STYLE_ID
+    document.head.appendChild(style)
+  }
+  return style
+}
+
 function makeTexture(baseFreq, octaves, gain, offset, blur) {
   const colorMatrix =
     gain != null
@@ -365,25 +380,19 @@ function makeTexture(baseFreq, octaves, gain, offset, blur) {
 }
 
 function applyPaperMode() {
-  const layer = document.getElementById(PAPER_LAYER_ID)
-  if (!layer) return
   const html = document.documentElement
   const dark =
     html.classList.contains('dark') || html.dataset.hermesMode === 'dark'
 
-  if (dark) {
-    const key = ctxRef ? ctxRef.storage.get(DARK_RECIPE_KEY, 'light') : 'light'
-    const r = DARK_RECIPES[key] || DARK_RECIPES.light
-    layer.style.backgroundImage = makeTexture(r.baseFreq, r.octaves, r.gain, r.offset, r.blur)
-    layer.style.opacity = String(r.opacity)
-    layer.style.mixBlendMode = 'screen'
-  } else {
-    const key = ctxRef ? ctxRef.storage.get(LIGHT_RECIPE_KEY, 'light') : 'light'
-    const r = LIGHT_RECIPES[key] || LIGHT_RECIPES.light
-    layer.style.backgroundImage = makeTexture(r.baseFreq, r.octaves, r.gain, r.offset, r.blur)
-    layer.style.opacity = String(r.opacity)
-    layer.style.mixBlendMode = 'multiply'
-  }
+  const key = ctxRef
+    ? ctxRef.storage.get(dark ? DARK_RECIPE_KEY : LIGHT_RECIPE_KEY, 'light')
+    : 'light'
+  const recipes = dark ? DARK_RECIPES : LIGHT_RECIPES
+  const r = recipes[key] || recipes.light
+  const root = html.style
+  root.setProperty('--hub-paper-image', makeTexture(r.baseFreq, r.octaves, r.gain, r.offset, r.blur))
+  root.setProperty('--hub-paper-opacity', String(r.opacity))
+  root.setProperty('--hub-paper-blend', dark ? 'screen' : 'multiply')
 }
 
 function injectPaper() {
@@ -393,38 +402,26 @@ function injectPaper() {
   const oldStyle = document.getElementById('nous-paper-style')
   if (oldStyle) oldStyle.remove()
 
-  let layer = document.getElementById(PAPER_LAYER_ID)
-  if (!layer) {
-    layer = document.createElement('div')
-    layer.id = PAPER_LAYER_ID
-    document.body.prepend(layer)
+  const style = paperStyleEl()
+  if (!style.textContent) {
+    style.textContent =
+      'html::before{content:"";position:fixed;inset:0;' +
+      'z-index:2147483647;pointer-events:none;' +
+      'background-size:205px 205px;' +
+      'background-image:var(--hub-paper-image,none);' +
+      'opacity:var(--hub-paper-opacity,0);' +
+      'mix-blend-mode:var(--hub-paper-blend,multiply);}'
   }
-  layer.style.cssText = [
-    'position:fixed',
-    'inset:0',
-    'z-index:2147483647',
-    'pointer-events:none',
-    'background-size:205px 205px'
-  ].join(';')
-
   applyPaperMode()
-
-  if (!paperObserver) {
-    paperObserver = new MutationObserver(applyPaperMode)
-    paperObserver.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['class', 'data-hermes-mode']
-    })
-  }
 }
 
 function removePaper() {
-  const layer = document.getElementById(PAPER_LAYER_ID)
-  if (layer) layer.remove()
-  if (paperObserver) {
-    paperObserver.disconnect()
-    paperObserver = null
-  }
+  const style = document.getElementById(PAPER_STYLE_ID)
+  if (style) style.remove()
+  const root = document.documentElement.style
+  root.removeProperty('--hub-paper-image')
+  root.removeProperty('--hub-paper-opacity')
+  root.removeProperty('--hub-paper-blend')
 }
 
 // ── 字体 ────────────────────────────────────────────────────────
@@ -726,49 +723,13 @@ function subscribeNativeZoom(cb) {
 }
 
 // ── 主题模式（明亮/暗色/跟随系统）─────────────────────────────────
-// 官方机制（themes/context.tsx）：mode 存 per-profile localStorage——
-//   default profile 写全局键 hermes-desktop-mode-v1；命名 profile 写
-//   hermes-desktop-profile-modes-v1 record。官方监听 storage 事件
-// （APPEARANCE_KEYS），setItem 即全窗口实时生效——与 zoom 同款官方管道。
-const MODE_GLOBAL_KEY = 'hermes-desktop-mode-v1'
-const MODE_RECORD_KEY = 'hermes-desktop-profile-modes-v1'
+// v4：模式/皮肤的读写统一走官方门（useTheme 的 mode/setMode、themeName/setTheme，
+// per-profile 持久化由官方 ThemeProvider 负责）。此处只留面板选项的展示元数据。
 const THEME_MODES = [
   { id: 'light', labelKey: 'theme.modeLight' },
   { id: 'dark', labelKey: 'theme.modeDark' },
   { id: 'system', labelKey: 'theme.modeSystem' }
 ]
-
-function readThemeMode() {
-  try {
-    // 活跃 profile 键与官方 ThemeProvider 一致（hermes-desktop-active-profile-v1）；
-    // 旧键 hermes-active-profile 在官方代码中不存在，曾导致多 profile 下模式误读 default 槽
-    const profile = localStorage.getItem('hermes-desktop-active-profile-v1') || 'default'
-    if (profile !== 'default') {
-      const rec = JSON.parse(localStorage.getItem(MODE_RECORD_KEY) || '{}')
-      if (rec[profile]) return rec[profile]
-    }
-    return localStorage.getItem(MODE_GLOBAL_KEY) || 'system'
-  } catch {
-    return 'system'
-  }
-}
-
-function writeThemeMode(mode) {
-  try {
-    // 与 readThemeMode 同键，跟官方 ThemeProvider 的 Xt setter 对齐
-    const profile = localStorage.getItem('hermes-desktop-active-profile-v1') || 'default'
-    if (profile === 'default') {
-      // 同键重写也会触发原生 storage 监听（同窗口 setItem 不自动派发，手动补发）
-      localStorage.setItem(MODE_GLOBAL_KEY, mode)
-      window.dispatchEvent(new StorageEvent('storage', { key: MODE_GLOBAL_KEY }))
-    } else {
-      const rec = JSON.parse(localStorage.getItem(MODE_RECORD_KEY) || '{}')
-      rec[profile] = mode
-      localStorage.setItem(MODE_RECORD_KEY, JSON.stringify(rec))
-      window.dispatchEvent(new StorageEvent('storage', { key: MODE_RECORD_KEY }))
-    }
-  } catch {}
-}
 
 function resolvedDark() {
   return document.documentElement.classList.contains('dark') ||
@@ -875,114 +836,114 @@ function pushTranslucencyIpc(book, dark) {
 // 种子值由混合链反解生成（solve-seeds.mjs，正向验证 0 偏差）：官方 skin 消费端
 // getBaseColors 走 resolveTheme → user themes 在解析链内，写 user-themes key 即生效。
 // register 幂等注入 + 热更新：每次 register 重写（localStorage 被清自愈）。
-const USER_THEME_KEY = 'hermes-desktop-user-themes-v1'
 const BINSHAO_PATCH_ID = 'hub-binshao-patch'
-const USER_THEMES = 
-{
-  "binshao": {
-    "name": "binshao",
-    "label": "Binshao",
-    "description": "暖纸色系移植版，明暗双模式。",
-    "colors": {
-      "background": "#eee6db",
-      "foreground": "#4f351c",
-      "card": "#ecdecb",
-      "cardForeground": "#4f351c",
-      "muted": "#f2ece3",
-      "mutedForeground": "#755d3e",
-      "popover": "#d9c2a3",
-      "popoverForeground": "#4f351c",
-      "primary": "#a4896e",
-      "primaryForeground": "#fcfaf8",
-      "secondary": "#f2ece3",
-      "secondaryForeground": "#4f351c",
-      "accent": "#f1ede7",
-      "accentForeground": "#4f351c",
-      "border": "#e4d7c3",
-      "input": "#d7c4a8",
-      "ring": "#a4896e",
-      "midground": "#a4896e",
-      "midgroundForeground": "#fcfaf8",
-      "composerRing": "#a4896e",
-      "destructive": "#bf3f36",
-      "destructiveForeground": "#fcfaf8",
-      "sidebarBackground": "#ebe3d6",
-      "sidebarBorder": "#cfb696",
-      "userBubble": "#ecdecb",
-      "userBubbleBorder": "#e4d7c3"
-    },
-    "darkColors": {
-      "background": "#352b22",
-      "foreground": "#f3e6d4",
-      "card": "#644e35",
-      "cardForeground": "#f3e6d4",
-      "muted": "#2a231d",
-      "mutedForeground": "#d2b48a",
-      "popover": "#4f3f2d",
-      "popoverForeground": "#f3e6d4",
-      "primary": "#e0b56a",
-      "primaryForeground": "#1c1814",
-      "secondary": "#2a231d",
-      "secondaryForeground": "#f3e6d4",
-      "accent": "#ded1c2",
-      "accentForeground": "#1c1814",
-      "border": "#6b563d",
-      "input": "#48392c",
-      "ring": "#e0b56a",
-      "midground": "#c9a06a",
-      "midgroundForeground": "#1c1814",
-      "composerRing": "#e0b56a",
-      "destructive": "#e02f29",
-      "destructiveForeground": "#f0e4d5",
-      "sidebarBackground": "#1c1814",
-      "sidebarBorder": "#9a8060",
-      "userBubble": "#4f3f2d",
-      "userBubbleBorder": "#6b563d"
-    },
-    "terminal": {
-      "foreground": "#4f351c",
-      "cursor": "#a4896e",
-      "selectionBackground": "rgba(248, 197, 46, 0.2)",
-      "black": "#432e14",
-      "red": "#df453a",
-      "green": "#3eb174",
-      "yellow": "#ecb936",
-      "blue": "#2a90cb",
-      "magenta": "#9f72bb",
-      "cyan": "#63a2bb",
-      "white": "#fcfaf8",
-      "brightBlack": "#b79d7b",
-      "brightRed": "#d9746d",
-      "brightGreen": "#8bc1a4",
-      "brightYellow": "#e7c56f",
-      "brightBlue": "#63a2bb",
-      "brightMagenta": "#cba7dc",
-      "brightCyan": "#63a2bb",
-      "brightWhite": "#fcfaf8"
-    },
-    "darkTerminal": {
-      "foreground": "#f3e6d4",
-      "cursor": "#e0b56a",
-      "selectionBackground": "rgba(249, 207, 81, 0.2)",
-      "black": "#1f1a14",
-      "red": "#f7685e",
-      "green": "#2ea873",
-      "yellow": "#e5aa1f",
-      "blue": "#4db2d1",
-      "magenta": "#6260c3",
-      "cyan": "#6abfd2",
-      "white": "#f0e4d5",
-      "brightBlack": "#6b563d",
-      "brightRed": "#fb8479",
-      "brightGreen": "#4ec68e",
-      "brightYellow": "#dfb64e",
-      "brightBlue": "#6abfd2",
-      "brightMagenta": "#8a87d9",
-      "brightCyan": "#6abfd2",
-      "brightWhite": "#f0e4d5"
-    }
+// v4：Binshao 主题不再写官方 user-themes 存储键（hijack 官方安装位），改走
+// THEMES_AREA 注册贡献——贡献主题与已安装主题同级参与解析（官方
+// contributedThemes() 做 isValidTheme 校验；内置名不可遮蔽、同名用户安装优先）。
+// 面板主题网格随之改读 useTheme().availableThemes，不再维护硬编码清单。
+const BINSHAO_THEME = {
+  "name": "binshao",
+  "label": "Binshao",
+  "description": "暖纸色系移植版，明暗双模式。",
+  "colors": {
+    "background": "#eee6db",
+    "foreground": "#4f351c",
+    "card": "#ecdecb",
+    "cardForeground": "#4f351c",
+    "muted": "#f2ece3",
+    "mutedForeground": "#755d3e",
+    "popover": "#d9c2a3",
+    "popoverForeground": "#4f351c",
+    "primary": "#a4896e",
+    "primaryForeground": "#fcfaf8",
+    "secondary": "#f2ece3",
+    "secondaryForeground": "#4f351c",
+    "accent": "#f1ede7",
+    "accentForeground": "#4f351c",
+    "border": "#e4d7c3",
+    "input": "#d7c4a8",
+    "ring": "#a4896e",
+    "midground": "#a4896e",
+    "midgroundForeground": "#fcfaf8",
+    "composerRing": "#a4896e",
+    "destructive": "#bf3f36",
+    "destructiveForeground": "#fcfaf8",
+    "sidebarBackground": "#ebe3d6",
+    "sidebarBorder": "#cfb696",
+    "userBubble": "#ecdecb",
+    "userBubbleBorder": "#e4d7c3"
+  },
+  "darkColors": {
+    "background": "#352b22",
+    "foreground": "#f3e6d4",
+    "card": "#644e35",
+    "cardForeground": "#f3e6d4",
+    "muted": "#2a231d",
+    "mutedForeground": "#d2b48a",
+    "popover": "#4f3f2d",
+    "popoverForeground": "#f3e6d4",
+    "primary": "#e0b56a",
+    "primaryForeground": "#1c1814",
+    "secondary": "#2a231d",
+    "secondaryForeground": "#f3e6d4",
+    "accent": "#ded1c2",
+    "accentForeground": "#1c1814",
+    "border": "#6b563d",
+    "input": "#48392c",
+    "ring": "#e0b56a",
+    "midground": "#c9a06a",
+    "midgroundForeground": "#1c1814",
+    "composerRing": "#e0b56a",
+    "destructive": "#e02f29",
+    "destructiveForeground": "#f0e4d5",
+    "sidebarBackground": "#1c1814",
+    "sidebarBorder": "#9a8060",
+    "userBubble": "#4f3f2d",
+    "userBubbleBorder": "#6b563d"
+  },
+  "terminal": {
+    "foreground": "#4f351c",
+    "cursor": "#a4896e",
+    "selectionBackground": "rgba(248, 197, 46, 0.2)",
+    "black": "#432e14",
+    "red": "#df453a",
+    "green": "#3eb174",
+    "yellow": "#ecb936",
+    "blue": "#2a90cb",
+    "magenta": "#9f72bb",
+    "cyan": "#63a2bb",
+    "white": "#fcfaf8",
+    "brightBlack": "#b79d7b",
+    "brightRed": "#d9746d",
+    "brightGreen": "#8bc1a4",
+    "brightYellow": "#e7c56f",
+    "brightBlue": "#63a2bb",
+    "brightMagenta": "#cba7dc",
+    "brightCyan": "#63a2bb",
+    "brightWhite": "#fcfaf8"
+  },
+  "darkTerminal": {
+    "foreground": "#f3e6d4",
+    "cursor": "#e0b56a",
+    "selectionBackground": "rgba(249, 207, 81, 0.2)",
+    "black": "#1f1a14",
+    "red": "#f7685e",
+    "green": "#2ea873",
+    "yellow": "#e5aa1f",
+    "blue": "#4db2d1",
+    "magenta": "#6260c3",
+    "cyan": "#6abfd2",
+    "white": "#f0e4d5",
+    "brightBlack": "#6b563d",
+    "brightRed": "#fb8479",
+    "brightGreen": "#4ec68e",
+    "brightYellow": "#dfb64e",
+    "brightBlue": "#6abfd2",
+    "brightMagenta": "#8a87d9",
+    "brightCyan": "#6abfd2",
+    "brightWhite": "#f0e4d5"
   }
-}
+};
 // 层2配色补丁：选中黄/输入框底/行内代码（applyTheme 管道外的硬编码色），
 // 作用域锁 [data-hermes-theme="binshao"]，不泄漏其他主题。
 const BINSHAO_PATCH_CSS = `[data-hermes-theme="binshao"] {
@@ -999,13 +960,7 @@ const BINSHAO_PATCH_CSS = `[data-hermes-theme="binshao"] {
 }
 `
 
-function injectBinshaoTheme() {
-  try {
-    const raw = localStorage.getItem(USER_THEME_KEY)
-    const record = raw ? JSON.parse(raw) : {}
-    Object.assign(record, USER_THEMES)
-    localStorage.setItem(USER_THEME_KEY, JSON.stringify(record))
-  } catch {}
+function injectBinshaoPatchCss() {
   document.getElementById(BINSHAO_PATCH_ID)?.remove()
   const style = document.createElement('style')
   style.id = BINSHAO_PATCH_ID
@@ -1013,50 +968,11 @@ function injectBinshaoTheme() {
   document.head.appendChild(style)
 }
 
-const SKIN_GLOBAL_KEY = 'hermes-desktop-theme-v2'
-const SKIN_RECORD_KEY = 'hermes-desktop-profile-themes-v1'
-const THEMES = [
-  { id: 'nous', label: 'Nous' },
-  { id: 'nous-alt', label: 'Nous Alt' },
-  { id: 'github', label: 'GitHub' },
-  { id: 'catppuccin', label: 'Catppuccin' },
-  { id: 'everforest', label: 'Everforest' },
-  { id: 'solarized', label: 'Solarized' },
-  { id: 'midnight', label: 'Midnight' },
-  { id: 'ember', label: 'Ember' },
-  { id: 'mono', label: 'Mono' },
-  { id: 'cyberpunk', label: 'Cyberpunk' },
-  { id: 'slate', label: 'Slate' },
-  { id: 'binshao', label: 'Binshao' }
-]
+// v4：皮肤清单/读写全部交给官方门（useTheme().availableThemes + setTheme），
+// 硬编码 12 项清单与 theme-v2/profile-themes 键直写一并退役——官方安装的用户
+// 主题与 THEMES_AREA 贡献主题（含 Binshao）现在自动出现在网格里。
 
-function readThemeSkin() {
-  try {
-    const profile = localStorage.getItem('hermes-desktop-active-profile-v1') || 'default'
-    if (profile !== 'default') {
-      const rec = JSON.parse(localStorage.getItem(SKIN_RECORD_KEY) || '{}')
-      if (rec[profile]) return rec[profile]
-    }
-    return localStorage.getItem(SKIN_GLOBAL_KEY) || 'nous'
-  } catch {
-    return 'nous'
-  }
-}
 
-function writeThemeSkin(skin) {
-  try {
-    const profile = localStorage.getItem('hermes-desktop-active-profile-v1') || 'default'
-    if (profile === 'default') {
-      localStorage.setItem(SKIN_GLOBAL_KEY, skin)
-      window.dispatchEvent(new StorageEvent('storage', { key: SKIN_GLOBAL_KEY }))
-    } else {
-      const rec = JSON.parse(localStorage.getItem(SKIN_RECORD_KEY) || '{}')
-      rec[profile] = skin
-      localStorage.setItem(SKIN_RECORD_KEY, JSON.stringify(rec))
-      window.dispatchEvent(new StorageEvent('storage', { key: SKIN_RECORD_KEY }))
-    }
-  } catch {}
-}
 
 // ── 面板 ──────────────────────────────────────────────────────────
 function AppearancePanel() {
@@ -1068,6 +984,9 @@ function AppearancePanel() {
   // en 纵向通栏开关：现全线统一「左标题右控件」横排（原 en 例外已废，
   // 分支保留——后续若要重调 en 布局，改这一行即可全局生效）
   const stackedLayout = false
+  // v4：主题模式/皮肤状态直读官方 ThemeProvider（useTheme 即官方 context，跨窗口/
+  // 设置页改动由它自己的 storage 订阅驱动重渲染），不再自维 useState+storage 监听
+  const { mode: themeMode, setMode: setNativeMode, themeName: theme, setTheme: setNativeTheme, availableThemes } = useTheme()
   const [paper, setPaper] = useState(() => ctxRef.storage.get(PAPER_KEY, true))
   const [darkRecipe, setDarkRecipeState] = useState(() => {
     const v = ctxRef.storage.get(DARK_RECIPE_KEY, 'light')
@@ -1077,7 +996,6 @@ function AppearancePanel() {
     const v = ctxRef.storage.get(LIGHT_RECIPE_KEY, 'light')
     return LIGHT_RECIPES[v] ? v : 'light'
   })
-  const [themeMode, setThemeModeState] = useState(() => readThemeMode())
   const [density, setDensityState] = useState(() =>
     readSimpleKey(DENSITY_KEY, 'compact', ['compact', 'comfortable', 'detailed']))
   const [bubble, setBubbleState] = useState(() => {
@@ -1207,20 +1125,6 @@ function AppearancePanel() {
     return typeof off === 'function' ? off : undefined
   }, [])
 
-  // 主题/模式跟随：别处（设置页/另一窗口）改外观时，本窗口原生 storage 监听已处理
-  // 界面重绘；这里只需让弹窗高亮跟上——监听同一组键。
-  useEffect(() => {
-    const onStorage = (e) => {
-      if (e.key === MODE_GLOBAL_KEY || e.key === MODE_RECORD_KEY ||
-          e.key === SKIN_GLOBAL_KEY || e.key === SKIN_RECORD_KEY) {
-        setThemeModeState(readThemeMode())
-        setThemeState(readThemeSkin())
-      }
-    }
-    window.addEventListener('storage', onStorage)
-    return () => window.removeEventListener('storage', onStorage)
-  }, [])
-
   const togglePaper = (next) => {
     setPaper(next)
     ctxRef.storage.set(PAPER_KEY, next)
@@ -1230,8 +1134,7 @@ function AppearancePanel() {
   }
 
   const setThemeMode = (mode) => {
-    setThemeModeState(mode)
-    writeThemeMode(mode)
+    setNativeMode(mode)
     haptic('tap')
   }
 
@@ -1249,10 +1152,8 @@ function AppearancePanel() {
     haptic('tap')
   }
 
-  const [theme, setThemeState] = useState(() => readThemeSkin())
   const setTheme = (id) => {
-    setThemeState(id)
-    writeThemeSkin(id)
+    setNativeTheme(id)
     haptic('tap')
   }
 
@@ -1434,7 +1335,7 @@ function AppearancePanel() {
           })
         ]
       }),
-      // 主题（原生皮肤列表，平铺网格）
+      // 主题（官方 availableThemes：内置 + 用户安装 + THEMES_AREA 贡献，平铺网格）
       jsxs('div', {
         onMouseEnter: () => hover('theme.gridDesc'),
         className: 'flex flex-col gap-1.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
@@ -1444,20 +1345,20 @@ function AppearancePanel() {
             'div',
             {
               style: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '4px', padding: '0' },
-              children: THEMES.map((t) =>
+              children: availableThemes.map((th) =>
                 jsx(
                   'button',
                   {
                     type: 'button',
-                    onClick: () => setTheme(t.id),
+                    onClick: () => setTheme(th.name),
                     className:
                       'rounded-md border px-1.5 py-1 text-[0.625rem] transition-colors ' +
-                      (t.id === theme
+                      (th.name === theme
                         ? 'border-(--ui-accent) bg-(--ui-control-active-background) font-medium text-(--ui-text-primary)'
                         : 'border-(--ui-stroke-secondary) text-(--ui-text-secondary) hover:bg-(--chrome-action-hover)'),
-                    children: t.label
+                    children: th.label
                   },
-                  t.id
+                  th.name
                 )
               )
             }
@@ -1908,7 +1809,12 @@ export default {
       watchOfficialChatFont()
       // 消息气泡：兜插件重载场景，按官方键恢复 CSS 变量（官方 app 启动已自恢复，幂等）
       applyUserBubble((() => { try { return localStorage.getItem(USER_BUBBLE_KEY) || 0 } catch { return 0 } })())
-      injectBinshaoTheme()
+      // v4：Binshao 主题走 THEMES_AREA 注册贡献（官方 contributedThemes() 参与
+      // resolveTheme 解析链，data 即 DesktopTheme 本体；卸载时贡献随插件 retire），
+      // 取代 v3.x 直写官方 hermes-desktop-user-themes-v1 安装位。层2补丁仍走
+      // style 注入（目录审查裁决 (a) 明文许可）。
+      ctx.register({ id: 'theme-binshao', area: THEMES_AREA, data: BINSHAO_THEME })
+      injectBinshaoPatchCss()
       // 开场标识：先与原生键对账，再按最终状态恢复注入
       // （v3.3.0：setItem 实时推送钩子已移除——官方设置页的改动重启后跟平）
       try {
