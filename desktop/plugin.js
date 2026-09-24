@@ -1828,13 +1828,18 @@ export default {
   name: 'Hermes Appearance Hub',
   description: '外观整合浮窗：双栏面板 · 悬停即见简介 · 12 主题/纸纹模拟/霞鹜文楷/窗口透明/开场标识/对话行为，状态栏一键设置。',
   register(ctx) {
+    // v4 修：ti18n 声明在 try 外——catch 的 notify 也要能取词（原声明在 try 内，
+    // register 早期抛错时错误通知自己 ReferenceError，测试首跑暴露）
+    let ti18n = (k) => k
     try {
       ctxRef = ctx
 
       // 插件级 i18n：注册 locale bundles，跟随 app 语言设置；卸载时随 disposer 摘除
       const disposeI18n = ctx.i18n.register(LOCALES)
       // 非响应式翻译器（register 时求值一次；语言切换后需重启更新状态栏文字）
-      const ti18n = ctx.i18n.t
+      // v4 修：声明提到 try 外——原声明在 try 内，catch 里的 notify 会 ReferenceError
+      //（register 早期抛错时错误通知自己先崩，测试首跑暴露）
+      ti18n = ctx.i18n.t
 
       // 按持久化状态初始化。纸纹默认开（原插件继承），字体默认关（v3.1：官方已有
       // 聊天字体自定义，一键策展不默认劫持；老用户存档不受影响，仅新装机默认翻转）

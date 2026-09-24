@@ -1,3 +1,2 @@
-.DS_Store
-.hermes/
 node_modules/
+package-lock.json

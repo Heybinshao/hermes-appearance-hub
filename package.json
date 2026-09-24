@@ -1,0 +1,13 @@
+{
+  "name": "hermes-appearance-hub-tests",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Offline regression harness for desktop/plugin.js (jsdom + SDK stub). Not published.",
+  "type": "module",
+  "scripts": {
+    "test": "node --import ./tests/run.mjs tests/smoke.mjs"
+  },
+  "devDependencies": {
+    "jsdom": "^25.0.0"
+  }
+}
