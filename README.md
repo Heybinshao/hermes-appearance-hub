@@ -1,4 +1,6 @@
-# Hermes Appearance Hub ![版本](https://img.shields.io/badge/版本-v3.3.0-blue)
+# Hermes Appearance Hub ![版本](https://img.shields.io/badge/版本-v4.0.0--dev-orange)
+
+> **🚧 本分支（v4）为合规迁移中的开发线，未发布。** 全部外观能力正在从「直写官方存储」迁移到官方 SDK 门（`useTheme`/`THEMES_AREA`/`host.settings`/纯 CSS 注入）；部分设置项依赖尚未合并的设置网关（[#116338](https://github.com/NousResearch/hermes-agent/pull/116338)），网关缺席时自动禁用并提示。稳定发布版见 `main` 分支（v3.3.0）。
 
 给 Hermes 桌面端用的**外观整合插件**：把散在官方设置页各处的外观与对话行为开关，连同纸纹模拟、霞鹜文楷、Binshao 主题等独有能力，收进状态栏一个浮窗——悬停即见说明，改动即时生效，省掉翻设置页的路径。
 
