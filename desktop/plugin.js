@@ -1989,9 +1989,8 @@ function AppearancePanel() {
     ],
     value: interfaceMode,
     onChange: changeInterfaceMode,
-    disabled: !settingHas(GK.interfaceMode),
     stacked: stackedLayout,
-    onEnter: gateHover(GK.interfaceMode, 'behavior.interfaceModeDesc')
+    onEnter: () => hover('behavior.interfaceModeDesc')
   })
   const secTimeline = jsx(BehaviorRow, {
     title: t('behavior.timeline'),
@@ -2001,9 +2000,8 @@ function AppearancePanel() {
     ],
     value: timelineHidden ? 'on' : 'off',
     onChange: (id) => changeTimeline(id === 'on'),
-    disabled: !settingHas(GK.timeline),
     stacked: stackedLayout,
-    onEnter: gateHover(GK.timeline, 'behavior.timelineDesc')
+    onEnter: () => hover('behavior.timelineDesc')
   })
   const secTray = tray ? jsx(BehaviorRow, {
     title: t('behavior.tray'),
@@ -2013,9 +2011,9 @@ function AppearancePanel() {
     ],
     value: tray.enabled ? 'on' : 'off',
     onChange: (id) => { void changeTray(id === 'on') },
-    disabled: tray.available === false,
+    // 对官方 minimize-to-tray-setting.tsx：available=false 只换提示文案，不挡点击
     stacked: stackedLayout,
-    onEnter: () => hover(tray.available === false ? 'behavior.trayUnavailable' : 'behavior.trayDesc')
+    onEnter: () => hover(tray.enabled && tray.available === false ? 'behavior.trayUnavailable' : 'behavior.trayDesc')
   }) : null
   const secPet = petState.loaded ? jsx(BehaviorRow, {
     title: t('behavior.pet'),
