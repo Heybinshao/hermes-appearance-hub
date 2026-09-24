@@ -408,48 +408,11 @@ const GK = {
   embedMode: 'embed-mode',
   appActions: 'titlebarAppActions',
   bubble: 'user-bubble-transparency.v1',
-  // v4.1 新增三行的门键（扩名单诉求未落前〔见 issue 草稿 A 项〕，门缺席走本地兜底）
+  // v4.1：无门功能一律置灰禁点（用户拍板：不兜底偷跑，与官方规则同标准的
+  // 单一口径）。以下两键 issue A 扩名单诉求中——门一落地 settingHas 转真，
+  // 对应行自动解禁，零代码改动。
   timeline: 'hideThreadTimeline',
   interfaceMode: 'interfaceMode.v1'
-}
-
-// GK 值=网关短名（未来 binding 名）；官方 localStorage 键带 hermes.desktop.
-// 前缀，兜底路径必须写全键——逐字对官方 store 常量（thread-timeline.ts /
-// interface-mode.ts）。
-const GKL = {
-  timeline: 'hermes.desktop.hideThreadTimeline',
-  interfaceMode: 'hermes.desktop.interfaceMode.v1'
-}
-
-// ── v4.1 三通道辅助（门优先，缺席本地兜底）────────────────────────
-// settingHas 只认真门；本地键读写用于扩名单落地前的过渡（与 #116338 裁决
-// (b) 的张力已知：过渡兜底、门一落地自动失效——发布版提交前须把兜底翻回
-// 禁用态，见 issue A 项）。
-// ⚠ 兜底路径只有重启生效语义（官方 atom 无 storage 监听，同 intro-splash v3
-// 结论）：写键保重启后一致，即时生效要等门。tray 例外——桥本身即时。
-// 键格式逐字对官方 codec：boolean 存 'true'/'false'（storedBoolean）；
-// interfaceMode 存裸串且 default(advanced) 删键（modeCodec encode→null）。
-function gateOrLocalGet(shortKey, fallback) {
-  if (settingHas(shortKey)) return settingGet(shortKey, fallback)
-  try {
-    const raw = localStorage.getItem(GKL[shortKey] || shortKey)
-    if (raw === null) return fallback
-    if (fallback === true || fallback === false) return raw === 'true'
-    return raw
-  } catch { return fallback }
-}
-
-function gateOrLocalSet(shortKey, value) {
-  if (settingHas(shortKey)) return settingSet(shortKey, value)
-  const gk = GKL[shortKey] || shortKey
-  try {
-    if (value === null || value === undefined) localStorage.removeItem(gk)
-    else if (typeof value === 'boolean') localStorage.setItem(gk, String(value))
-    else if (value === 'advanced') localStorage.removeItem(gk)  // modeCodec：默认档删键
-    else localStorage.setItem(gk, String(value))
-    window.dispatchEvent(new StorageEvent('storage', { key: gk }))
-    return true
-  } catch { return false }
 }
 
 // 最小化到托盘：主进程态，无本地 atom——preload 桥 hermesDesktop.minimizeToTray
@@ -458,6 +421,22 @@ function gateOrLocalSet(shortKey, value) {
 function trayBridge() {
   const b = typeof window !== 'undefined' && window.hermesDesktop && window.hermesDesktop.minimizeToTray
   return b && typeof b.get === 'function' ? b : null
+}
+
+// v4.1 统一口径（用户拍板）：需要门而官方尚未提供的功能=置灰禁点，不兜底
+// 偷跑、不裸桥直调；issue B/C 提议的 host.window 落地即自动解禁。
+// 解禁开关收敛到这一处——zoom/透明/托盘三个功能共用；若官方拆半落地，
+// 再按 getZoom/setTranslucency 细分探测。
+function windowBridgeOk() {
+  const w = host && host.window
+  return Boolean(w && typeof w.setZoom === 'function' && typeof w.setTranslucency === 'function')
+}
+
+// v4.1：开场标识「自定义文案」档 = 无门功能（intro 内容贡献位，issue D 诉求，
+// 官方现无 API 可探测）→ 硬禁。开/关档走 GK.intro 真门不受影响。
+// issue D 落地（或等价 API 出现）时改为特性探测。
+function introTextDoorOk() {
+  return false
 }
 
 // ── 桌面宠物（官方网关正门：host.request JSON-RPC）──────────────────
@@ -792,6 +771,10 @@ function stopIntroObserver() {
 }
 
 function applyIntroMode(mode) {
+  // v4.1：custom 档无门（issue D）→ 运行时同样不可达：历史 custom 存档按
+  // native 执行，observer/文本手术路径整体休眠（口径=无门则功能不存在，
+  // 不留"看不见但活着"的旁路）。
+  if (mode === 'custom' && !introTextDoorOk()) mode = 'native'
   // v3.3.0：官方 atom 通道与 setItem 钩子已移除（规则 8 合规），唯一路径 =
   // CSS 注入即时显隐 + 原生键落盘（重启后一致）+ 程序化点击同步官方设置页。
   let style = document.getElementById(INTRO_STYLE_ID)
@@ -1137,7 +1120,9 @@ function AppearancePanel() {
     const v = ctxRef.storage.get(LIGHT_RECIPE_KEY, 'light')
     return LIGHT_RECIPES[v] ? v : 'light'
   })
-  // v4：网关在场=六键全活；缺席（旧桌面端/网关未合）→ 设置行禁用
+  // v4 修：网关在场=六键全活；缺席（旧桌面端/网关未合）→ 设置行禁用
+  // v4.1：window bridge（issue B/C）在场=缩放/透明/托盘可点；缺席=置灰禁点
+  const windowOk = windowBridgeOk()
   const gateOk = settingsGateway() !== null
   const [density, setDensityState] = useState(() =>
     settingGet(GK.density, 'compact'))
@@ -1155,16 +1140,16 @@ function AppearancePanel() {
   const [embedMode, setEmbedModeState] = useState(() => settingGet(GK.embedMode, 'ask'))
   const [popoutEnabled, setPopoutState] = useState(() => settingGet(GK.popout, true))
   const [appActionsSide, setAppActionsState] = useState(() => settingGet(GK.appActions, 'right'))
-  // v4.1 新增：界面模式 / 隐藏时间线条（门优先，兜底=官方键直写·重启生效）
-  const [interfaceMode, setInterfaceModeState] = useState(() => gateOrLocalGet('interfaceMode.v1', 'advanced'))
-  const [timelineHidden, setTimelineHiddenState] = useState(() => gateOrLocalGet('hideThreadTimeline', false))
+  // v4.1：界面模式 / 隐藏时间线条——纯门语义（无门=行禁用，不兜底偷跑）
+  const [interfaceMode, setInterfaceModeState] = useState(() => settingGet(GK.interfaceMode, 'advanced'))
+  const [timelineHidden, setTimelineHiddenState] = useState(() => settingGet(GK.timeline, false))
   const changeInterfaceMode = (id) => {
-    if (!gateOrLocalSet('interfaceMode.v1', id)) return
+    if (!settingSet(GK.interfaceMode, id)) return
     setInterfaceModeState(id)
     haptic('tap')
   }
   const changeTimeline = (on) => {
-    if (!gateOrLocalSet('hideThreadTimeline', on)) return
+    if (!settingSet(GK.timeline, on)) return
     setTimelineHiddenState(on)
     haptic('tap')
   }
@@ -1698,6 +1683,8 @@ function AppearancePanel() {
                 step: 1,
                 value: bubble,
                 onChange: (e) => changeBubble(Number(e.target.value)),
+                // v4.1：bubble 键未入网关名单（issue A）→ 置灰禁点
+                disabled: !settingHas(GK.bubble),
                 style: SLIDER_STYLE,
                 className: stackedLayout ? 'min-w-0 w-full cursor-pointer' : 'min-w-0 flex-1 cursor-pointer',
                 'aria-label': t('bubble.title')
@@ -1727,8 +1714,10 @@ function AppearancePanel() {
       }),
 
       // 窗口透明（整块 hover 显示总说明；嵌套参数行不再单列文案）
+      // v4.1：透明=裸桥+官方键直写，host.window（issue C）未落 → 整块掐指针+置灰总开关
       jsxs('div', {
-        onMouseEnter: () => hover('translucency.desc'),
+        style: { pointerEvents: windowOk ? undefined : 'none' },
+        onMouseEnter: () => hover(windowOk ? 'translucency.desc' : 'gateNote.unavailable'),
         className: 'flex flex-col gap-1.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
         children: [
           jsxs('div', {
@@ -1844,16 +1833,22 @@ function AppearancePanel() {
           }),
           // 展开区常驻：关 → 整块禁交互（同纸纹配方手法：外层掐指针感知灭 hover）；
           // 开+原生文案 → 仅输入区禁用；开+自定义 → 全部可用
+          // v4.1：custom 档=无门功能（issue D）→ 档位选择行禁用，custom 不可达；
+          //     旧存档已是 custom 的，替换层继续生效（只禁新改动）
           jsxs('div', {
             style: { pointerEvents: introOn ? undefined : 'none' },
             className: 'flex flex-col gap-1.5',
             children: [
-              jsx(SegmentedControl, {
-                options: INTRO_OPTIONS.map((o) => ({ ...o, label: label(o) })),
-                value: introMode,
-                onChange: setIntroMode,
-                disabled: !introOn,
-                className: 'w-full'
+              jsx('div', {
+                onMouseEnter: () => hover(introTextDoorOk() ? 'intro.modeDesc' : 'gateNote.unavailable'),
+                style: { pointerEvents: introOn && introTextDoorOk() ? undefined : 'none' },
+                children: jsx(SegmentedControl, {
+                  options: INTRO_OPTIONS.map((o) => ({ ...o, label: label(o) })),
+                  value: introMode,
+                  onChange: setIntroMode,
+                  disabled: !introOn || !introTextDoorOk(),
+                  className: 'w-full'
+                })
               }),
               jsxs('div', {
                 // custom 子区独立掐指针：开+原生时也不可点，且不响应 hover
@@ -1960,11 +1955,13 @@ function AppearancePanel() {
           jsx('div', {
             // onMouseEnter 包外层 div——SDK 组件不保证透传未知 props 到 DOM
             style: { flexShrink: 0 },
-            onMouseEnter: () => hover('zoom.desc'),
+            onMouseEnter: () => hover(windowOk ? 'zoom.desc' : 'gateNote.unavailable'),
             children: jsx(SegmentedControl, {
               options: ZOOM_OPTIONS,
               value: zoom,
               onChange: setZoom,
+              // v4.1：缩放=裸桥功能，host.window（issue B）未落 → 置灰禁点
+              disabled: !windowOk,
               className: 'scale-90',
               'aria-label': t('zoom.title')
             })
@@ -1989,8 +1986,9 @@ function AppearancePanel() {
     ],
     value: interfaceMode,
     onChange: changeInterfaceMode,
+    disabled: !settingHas(GK.interfaceMode),
     stacked: stackedLayout,
-    onEnter: () => hover('behavior.interfaceModeDesc')
+    onEnter: gateHover(GK.interfaceMode, 'behavior.interfaceModeDesc')
   })
   const secTimeline = jsx(BehaviorRow, {
     title: t('behavior.timeline'),
@@ -2000,8 +1998,9 @@ function AppearancePanel() {
     ],
     value: timelineHidden ? 'on' : 'off',
     onChange: (id) => changeTimeline(id === 'on'),
+    disabled: !settingHas(GK.timeline),
     stacked: stackedLayout,
-    onEnter: () => hover('behavior.timelineDesc')
+    onEnter: gateHover(GK.timeline, 'behavior.timelineDesc')
   })
   const secTray = tray ? jsx(BehaviorRow, {
     title: t('behavior.tray'),
@@ -2011,9 +2010,10 @@ function AppearancePanel() {
     ],
     value: tray.enabled ? 'on' : 'off',
     onChange: (id) => { void changeTray(id === 'on') },
-    // 对官方 minimize-to-tray-setting.tsx：available=false 只换提示文案，不挡点击
+    // v4.1：托盘=裸桥功能，window bridge（issue C）未落 → 置灰禁点（拍板口径）
+    disabled: true,
     stacked: stackedLayout,
-    onEnter: () => hover(tray.enabled && tray.available === false ? 'behavior.trayUnavailable' : 'behavior.trayDesc')
+    onEnter: () => hover('gateNote.unavailable')
   }) : null
   const secPet = petState.loaded ? jsx(BehaviorRow, {
     title: t('behavior.pet'),
@@ -2083,8 +2083,8 @@ export default {
       if (ctx.storage.get(FONT_KEY, false)) applyFont()
       // 官方聊天字体编辑监听常驻：开关开着时官方 inline 变化 → applyFont 让位/恢复
       watchOfficialChatFont()
-      // 消息气泡：兜插件重载场景，按官方键恢复 CSS 变量（官方 app 启动已自恢复，幂等）
-      applyUserBubble((() => { try { return localStorage.getItem(USER_BUBBLE_KEY) || 0 } catch { return 0 } })())
+      // 消息气泡（v4.1：门缺=行禁用，不再插件侧重放——官方 store 启动自画
+      // --user-bubble-keep，app 级状态归官方；此处直读官方键属违规旧路径，退役）
       // v4：Binshao 主题走 THEMES_AREA 注册贡献（官方 contributedThemes() 参与
       // resolveTheme 解析链，data 即 DesktopTheme 本体；卸载时贡献随插件 retire），
       // 取代 v3.x 直写官方 hermes-desktop-user-themes-v1 安装位。层2补丁仍走
