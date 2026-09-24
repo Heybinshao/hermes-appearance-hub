@@ -66,7 +66,8 @@ export const LOCALES = {
     },
     zoom: { title: 'UI Scale', desc: 'Native scaling · synced with Settings/View menu' },
     footer: { tip: 'Hover any setting for details · Changes apply instantly' },
-    notify: { ready: 'Appearance Hub ready — use the Appearance toggle in the status bar', failed: 'Appearance Hub injection failed: ' }
+    notify: { ready: 'Appearance Hub ready — use the Appearance toggle in the status bar', failed: 'Appearance Hub injection failed: ' },
+    gateNote: { unavailable: 'Requires a newer Hermes Desktop with the settings gateway — nothing is broken' }
   },
   zh: {
     statusbar: { label: '外观', title: '外观设置', toggleLabel: '外观设置' },
@@ -113,7 +114,8 @@ export const LOCALES = {
     },
     zoom: { title: '界面缩放', desc: '缩放整个应用的文字和界面，与系统设置/View 菜单同步。' },
     footer: { tip: '悬停任一设置项查看说明 · 改动即时生效' },
-    notify: { ready: '外观 Hub 已就绪 — 状态栏「外观」开关', failed: '外观 Hub 注入失败: ' }
+    notify: { ready: '外观 Hub 已就绪 — 状态栏「外观」开关', failed: '外观 Hub 注入失败: ' },
+    gateNote: { unavailable: '需搭载设置网关的新版桌面端 — 非故障' }
   },
   'zh-hant': {
     statusbar: { label: '外觀', title: '外觀設定', toggleLabel: '外觀設定' },
@@ -160,7 +162,8 @@ export const LOCALES = {
     },
     zoom: { title: '介面縮放', desc: '縮放整個應用程式的文字與介面，與設定/檢視選單同步。' },
     footer: { tip: '懸停任一設定項查看說明 · 變更即時生效' },
-    notify: { ready: '外觀 Hub 已就緒 — 狀態列「外觀」開關', failed: '外觀 Hub 注入失敗: ' }
+    notify: { ready: '外觀 Hub 已就緒 — 狀態列「外觀」開關', failed: '外觀 Hub 注入失敗: ' },
+    gateNote: { unavailable: '需搭載設置閘道的新版桌面端 — 非故障' }
   }
 }
 
@@ -427,19 +430,17 @@ function makeTexture(baseFreq, octaves, gain, offset, blur) {
 }
 
 function applyPaperMode() {
-  const html = document.documentElement
-  const dark =
-    html.classList.contains('dark') || html.dataset.hermesMode === 'dark'
-
-  const key = ctxRef
-    ? ctxRef.storage.get(dark ? DARK_RECIPE_KEY : LIGHT_RECIPE_KEY, 'light')
-    : 'light'
-  const recipes = dark ? DARK_RECIPES : LIGHT_RECIPES
-  const r = recipes[key] || recipes.light
-  const root = html.style
-  root.setProperty('--hub-paper-image', makeTexture(r.baseFreq, r.octaves, r.gain, r.offset, r.blur))
-  root.setProperty('--hub-paper-opacity', String(r.opacity))
-  root.setProperty('--hub-paper-blend', dark ? 'screen' : 'multiply')
+  // 明暗两套配方各写各的槽（CSS 选择器负责在模式翻转时选用，无需判断当前模式）
+  if (!ctxRef) return
+  const root = document.documentElement.style
+  for (const [slot, recipes, storageKey] of [
+    ['light', LIGHT_RECIPES, LIGHT_RECIPE_KEY],
+    ['dark', DARK_RECIPES, DARK_RECIPE_KEY]
+  ]) {
+    const r = recipes[ctxRef.storage.get(storageKey, 'light')] || recipes.light
+    root.setProperty('--hub-paper-' + slot + '-image', makeTexture(r.baseFreq, r.octaves, r.gain, r.offset, r.blur))
+    root.setProperty('--hub-paper-' + slot + '-opacity', String(r.opacity))
+  }
 }
 
 function injectPaper() {
@@ -451,13 +452,19 @@ function injectPaper() {
 
   const style = paperStyleEl()
   if (!style.textContent) {
+    // 明暗双槽：官方翻转 html.dark / data-hermes-mode 时，伪元素按选择器自动换
+    // 配方变量——无需任何 observer/重算（v4test 实测：单槽版切明暗要点一次才跟）
     style.textContent =
       'html::before{content:"";position:fixed;inset:0;' +
       'z-index:2147483647;pointer-events:none;' +
       'background-size:205px 205px;' +
-      'background-image:var(--hub-paper-image,none);' +
-      'opacity:var(--hub-paper-opacity,0);' +
-      'mix-blend-mode:var(--hub-paper-blend,multiply);}'
+      'background-image:var(--hub-paper-light-image,none);' +
+      'opacity:var(--hub-paper-light-opacity,0);' +
+      'mix-blend-mode:multiply;}' +
+      'html.dark::before,html[data-hermes-mode=\"dark\"]::before{' +
+      'background-image:var(--hub-paper-dark-image,none);' +
+      'opacity:var(--hub-paper-dark-opacity,0);' +
+      'mix-blend-mode:screen;}'
   }
   applyPaperMode()
 }
@@ -466,9 +473,10 @@ function removePaper() {
   const style = document.getElementById(PAPER_STYLE_ID)
   if (style) style.remove()
   const root = document.documentElement.style
-  root.removeProperty('--hub-paper-image')
-  root.removeProperty('--hub-paper-opacity')
-  root.removeProperty('--hub-paper-blend')
+  for (const slot of ['light', 'dark']) {
+    root.removeProperty('--hub-paper-' + slot + '-image')
+    root.removeProperty('--hub-paper-' + slot + '-opacity')
+  }
 }
 
 // ── 字体 ────────────────────────────────────────────────────────
@@ -1123,6 +1131,10 @@ function AppearancePanel() {
     clearTimeout(hoverTimer.current)
     hoverTimer.current = setTimeout(() => setHovered(descKey), 150)
   }
+  // 禁用行悬停语义：门不可用 → 说明带显示「需新版桌面端·非故障」；可用 → 正常简介
+  const gateHover = (key, descKey) => () => hover(settingHas(key) ? descKey : 'gateNote.unavailable')
+  // 气泡滑杆行（非 BehaviorRow）的悬停也接门提示：不可用时显示 gateNote
+  const bubbleHover = () => hover(settingHas(GK.bubble) ? 'bubble.desc' : 'gateNote.unavailable')
 
   // 面板挂载后建立同步：优先用模块级 liveZoom 缓存，未缓存则回退原生读取；
   // 订阅模块级变化（弹窗关闭即退订，但原生常驻监听在 register 时已挂，故反向永不断）
@@ -1481,7 +1493,7 @@ function AppearancePanel() {
         onChange: setTabStrip,
         disabled: !settingHas(GK.tabStrip),
         stacked: stackedLayout,
-        onEnter: () => hover('tabstrip.desc')
+        onEnter: gateHover(GK.tabStrip, 'tabstrip.desc')
       }),
 
       // 会话列表密度（en 例外：官方全词控件约 209px，横排放不下 → 该行单独纵向换行）
@@ -1492,12 +1504,12 @@ function AppearancePanel() {
         onChange: setDensity,
         disabled: !settingHas(GK.density),
         stacked: locale === 'en',
-        onEnter: () => hover('density.desc')
+        onEnter: gateHover(GK.density, 'density.desc')
       }),
 
       // 消息气泡（滑杆行无对应 BehaviorRow 形态，仅去图标+挂 hover）
       jsxs('div', {
-        onMouseEnter: () => hover('bubble.desc'),
+        onMouseEnter: bubbleHover,
         className: stackedLayout
           ? 'flex flex-col gap-1.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)'
           : 'flex items-center gap-2.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
@@ -1538,7 +1550,7 @@ function AppearancePanel() {
         onChange: (id) => toggleBackdrop(id === 'on'),
         disabled: !settingHas(GK.backdrop),
         stacked: false,
-        onEnter: () => hover('backdrop.desc')
+        onEnter: gateHover(GK.backdrop, 'backdrop.desc')
       }),
 
       // 窗口透明（整块 hover 显示总说明；嵌套参数行不再单列文案）
@@ -1710,7 +1722,7 @@ function AppearancePanel() {
         onChange: changeToolViewMode,
         disabled: !settingHas(GK.toolView),
         stacked: stackedLayout,
-        onEnter: () => hover('behavior.toolViewDesc')
+        onEnter: gateHover(GK.toolView, 'behavior.toolViewDesc')
       }),
       jsx(BehaviorRow, {
         title: t('behavior.reasoning'),
@@ -1722,7 +1734,7 @@ function AppearancePanel() {
         onChange: (id) => changeReasoning(id === 'on'),
         disabled: !settingHas(GK.reasoning),
         stacked: stackedLayout,
-        onEnter: () => hover('behavior.reasoningDesc')
+        onEnter: gateHover(GK.reasoning, 'behavior.reasoningDesc')
       }),
       jsx(BehaviorRow, {
         title: t('behavior.embeds'),
@@ -1735,7 +1747,7 @@ function AppearancePanel() {
         onChange: changeEmbedMode,
         disabled: !settingHas(GK.embedMode),
         stacked: stackedLayout,
-        onEnter: () => hover('behavior.embedsDesc')
+        onEnter: gateHover(GK.embedMode, 'behavior.embedsDesc')
       }),
       jsx(BehaviorRow, {
         title: t('behavior.popout'),
@@ -1747,7 +1759,7 @@ function AppearancePanel() {
         onChange: (id) => changePopout(id === 'on'),
         disabled: !settingHas(GK.popout),
         stacked: stackedLayout,
-        onEnter: () => hover('behavior.popoutDesc')
+        onEnter: gateHover(GK.popout, 'behavior.popoutDesc')
       }),
       jsx(BehaviorRow, {
         title: t('behavior.appActions'),
@@ -1759,7 +1771,7 @@ function AppearancePanel() {
         onChange: changeAppActions,
         disabled: !settingHas(GK.appActions),
         stacked: stackedLayout,
-        onEnter: () => hover('behavior.appActionsDesc')
+        onEnter: gateHover(GK.appActions, 'behavior.appActionsDesc')
       }),
 
       // 底部说明带：左=悬停联动（空载显示占位 tip），右=界面缩放（悬停缩放条也联动）
