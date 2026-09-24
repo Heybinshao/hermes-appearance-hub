@@ -247,20 +247,6 @@ const EMBED_MODE_KEY = 'hermes.desktop.embed-mode'
 const POPOUT_KEY = 'hermes.desktop.composerPopout.gesturesEnabled'
 const APP_ACTIONS_KEY = 'hermes.desktop.titlebarAppActions'
 
-function readBoolKey(key, fallback) {
-  try {
-    const v = localStorage.getItem(key)
-    return v === 'true' ? true : v === 'false' ? false : fallback
-  } catch { return fallback }
-}
-
-function writeBoolKey(key, on) {
-  try {
-    localStorage.setItem(key, String(on))
-    window.dispatchEvent(new StorageEvent('storage', { key }))
-  } catch {}
-}
-
 function clampBubble(value) {
   const n = Math.round(Number(value))
   return Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 0
@@ -268,13 +254,14 @@ function clampBubble(value) {
 
 function applyUserBubble(value) {
   const v = clampBubble(value)
+  // v4：持久化走 settings 门（GK.bubble 在扩名单请求中，未入名单时静默=本会话生效）；
+  // CSS 变量注入是裁决 (a) 许可的样式面，保留
+  settingSet(GK.bubble, String(v))
   try {
     if (v === 0) {
       document.documentElement.style.removeProperty('--user-bubble-keep')
-      localStorage.removeItem(USER_BUBBLE_KEY)
     } else {
       document.documentElement.style.setProperty('--user-bubble-keep', (100 - v) + '%')
-      localStorage.setItem(USER_BUBBLE_KEY, String(v))
     }
   } catch {}
 }
@@ -311,7 +298,7 @@ const ControlRow = ({ label, children }) =>
 // 无图标无简介——单行标题 + 右侧定宽控件；stacked=en 纵向通栏。
 // onEnter 由面板注入（hover→底部说明带联动）。
 // 必须模块级定义——放组件体内每次渲染新引用，React 卸载重挂子树。
-const BehaviorRow = ({ title, options, value, onChange, stacked, onEnter }) =>
+const BehaviorRow = ({ title, options, value, onChange, stacked, onEnter, disabled }) =>
   jsxs('div', {
     onMouseEnter: onEnter,
     className: stacked
@@ -326,6 +313,7 @@ const BehaviorRow = ({ title, options, value, onChange, stacked, onEnter }) =>
         options,
         value,
         onChange,
+        disabled,
         className: stacked ? 'w-full' : 'ml-auto',
         style: stacked ? undefined : { width: '150px', flexShrink: 0 }
       })
@@ -338,6 +326,65 @@ const INTRO_OPTIONS = [
 ]
 
 let ctxRef = null
+
+// ── v4 设置门桥接层 ──────────────────────────────────────────────
+// 六键走官方 settings gateway（#116338：host.settings.get/set/subscribe，
+// 白名单内、写即走官方 setter，persist 归官方）。host.settings 缺失=旧桌面端
+// 或网关未合，行由 disabled 禁用（不再 localStorage 直写——目录审查裁决 (b)
+// 判直写违规，兜底即回归线）。#116338 合并后 SDK 构建即解锁。
+function settingsGateway() {
+  const s = host && host.settings
+  return s && typeof s.get === 'function' && typeof s.set === 'function' ? s : null
+}
+
+function settingGet(key, fallback) {
+  const sg = settingsGateway()
+  if (!sg) return fallback
+  try {
+    const v = sg.get(key)
+    return v === undefined || v === null ? fallback : v
+  } catch { return fallback }
+}
+
+function settingSet(key, value) {
+  const sg = settingsGateway()
+  if (!sg) return false
+  try {
+    sg.set(key, value)
+    return true
+  } catch { return false }
+}
+
+// 订阅官方值变化（面板高亮跟随）；网关缺席返回 noop disposer
+function settingSubscribe(key, cb) {
+  const sg = settingsGateway()
+  if (!sg || typeof sg.subscribe !== 'function') return () => {}
+  try { return sg.subscribe(key, cb) } catch { return () => {} }
+}
+
+// 网关对非白名单键同步抛 Unsupported desktop setting → 探测式判支持面：
+// 门扩了名单，面板对应行自动解禁，无需再改插件代码
+function settingHas(key) {
+  const sg = settingsGateway()
+  if (!sg) return false
+  try { sg.get(key); return true } catch { return false }
+}
+
+// 网关键名 ≠ localStorage 键名（#116338 白名单用短名），集中映射一份
+const GK = {
+  density: 'sessionListDensity',
+  tabStrip: 'tabStripDefault',
+  backdrop: 'backdrop.v1',
+  intro: 'intro-splash.v1',
+  reasoning: 'reasoning.collapsedByDefault',
+  popout: 'composerPopout.gesturesEnabled',
+  // 以下 4 键在 #116338 扩名单请求中（短名约定同上）；未入名单前
+  // settingHas=false → 对应行为禁用态，名单一扩即自解锁
+  toolView: 'toolView.technical',
+  embedMode: 'embed-mode',
+  appActions: 'titlebarAppActions',
+  bubble: 'user-bubble-transparency.v1'
+}
 
 // ── 纸纹 ────────────────────────────────────────────────────────
 // v4：纯 CSS 通道——占 html::before 伪元素（官方样式表核实无保留，z-index 顶格 +
@@ -736,38 +783,9 @@ function resolvedDark() {
     document.documentElement.dataset.hermesMode === 'dark'
 }
 
-// ── 移植项读写 ────────────────────────────────────────────────────
-function readSimpleKey(key, fallback, valid) {
-  try {
-    const v = localStorage.getItem(key)
-    return v && valid.includes(v) ? v : fallback
-  } catch { return fallback }
-}
-
-function writeSimpleKey(key, value) {
-  try {
-    localStorage.setItem(key, value)
-    window.dispatchEvent(new StorageEvent('storage', { key }))
-  } catch {}
-}
-
-// ── v3.3.0 合规改造：官方 atom 实时通道整段移除 ─────────────────────
-// 原版在这里动态 import 官方 bundle chunk、翻转探测认领 nanostores atom 做实时
-// 生效，违反插件目录准入规则 8（desktop surface lint：禁原型补丁/禁动态 import SDK
-// 之外模块）。以下所有官方设置项统一降级为 localStorage 直写 + 补发 storage 事件：
-// 订阅型键重启生效，tabStrip 下次 pane 树重渲染生效。官方若在 SDK 提供设置项
-// 读写/订阅网关（catalog PR #114155 讨论中），此注释处即回迁点。
-
-function readBackdrop() {
-  try { return localStorage.getItem(BACKDROP_KEY) === 'true' } catch { return false }
-}
-
-function writeBackdrop(on) {
-  try {
-    localStorage.setItem(BACKDROP_KEY, String(on))
-    window.dispatchEvent(new StorageEvent('storage', { key: BACKDROP_KEY }))
-  } catch {}
-}
+// v4：设置项六键迁 host.settings 网关（见顶部桥接层）；气泡/工具视图/嵌入/
+// 标题栏按钮四键在扩名单请求中。translucency 账本与 intro 原生键仍直写，
+// 属"无门功能收口刀"（等 typed bridge / intro hook 裁决），上架前统一处理。
 
 function readTranslucencyBook() {
   try {
@@ -996,52 +1014,61 @@ function AppearancePanel() {
     const v = ctxRef.storage.get(LIGHT_RECIPE_KEY, 'light')
     return LIGHT_RECIPES[v] ? v : 'light'
   })
+  // v4：网关在场=六键全活；缺席（旧桌面端/网关未合）→ 设置行禁用
+  const gateOk = settingsGateway() !== null
   const [density, setDensityState] = useState(() =>
-    readSimpleKey(DENSITY_KEY, 'compact', ['compact', 'comfortable', 'detailed']))
-  const [bubble, setBubbleState] = useState(() => {
-    try { return clampBubble(localStorage.getItem(USER_BUBBLE_KEY) || 0) } catch { return 0 }
-  })
+    settingGet(GK.density, 'compact'))
+  const [bubble, setBubbleState] = useState(() => clampBubble(settingGet(GK.bubble, 0)))
   const changeBubble = (v) => {
     setBubbleState(v)
-    applyUserBubble(v)
+    applyUserBubble(v)   // 持久化走门；未入名单时仅本会话生效
   }
-  const [tabStrip, setTabStripState] = useState(() =>
-    readSimpleKey(TABSTRIP_KEY, 'auto', ['auto', 'always', 'never']))
-  const [backdrop, setBackdropState] = useState(() => readBackdrop())
-  // ── 对话行为五件套：状态读官方键；写入 atom 优先、localStorage 直写兜底 ──
+  const [tabStrip, setTabStripState] = useState(() => settingGet(GK.tabStrip, 'auto'))
+  const [backdrop, setBackdropState] = useState(() => settingGet(GK.backdrop, false))
+  // ── 对话行为五件套：六键走网关；四键等扩名单（gateOk 时禁用，门落地即解禁）──
   const [toolViewMode, setToolViewModeState] = useState(() =>
-    readBoolKey(TOOL_VIEW_KEY, false) ? 'technical' : 'product')
-  const [reasoningCollapsed, setReasoningState] = useState(() => readBoolKey(REASONING_KEY, false))
-  const [embedMode, setEmbedModeState] = useState(() =>
-    readSimpleKey(EMBED_MODE_KEY, 'ask', ['ask', 'always', 'off']))
-  const [popoutEnabled, setPopoutState] = useState(() => readBoolKey(POPOUT_KEY, true))
-  const [appActionsSide, setAppActionsState] = useState(() =>
-    readSimpleKey(APP_ACTIONS_KEY, 'right', ['left', 'right']))
+    settingGet(GK.toolView, false) ? 'technical' : 'product')
+  const [reasoningCollapsed, setReasoningState] = useState(() => settingGet(GK.reasoning, false))
+  const [embedMode, setEmbedModeState] = useState(() => settingGet(GK.embedMode, 'ask'))
+  const [popoutEnabled, setPopoutState] = useState(() => settingGet(GK.popout, true))
+  const [appActionsSide, setAppActionsState] = useState(() => settingGet(GK.appActions, 'right'))
+
+  // 网关订阅：官方设置页/其他窗口改动 → 面板高亮实时跟平
+  useEffect(() => {
+    if (!gateOk) return undefined
+    const offs = [
+      settingSubscribe(GK.density, setDensityState),
+      settingSubscribe(GK.tabStrip, setTabStripState),
+      settingSubscribe(GK.backdrop, setBackdropState),
+      settingSubscribe(GK.reasoning, setReasoningState),
+      settingSubscribe(GK.popout, setPopoutState)
+    ]
+    return () => offs.forEach((off) => { try { off && off() } catch {} })
+  }, [gateOk])
 
   const changeToolViewMode = (id) => {
+    if (!settingSet(GK.toolView, id === 'technical')) return
     setToolViewModeState(id)
-    writeBoolKey(TOOL_VIEW_KEY, id === 'technical')   // 直写 = 重启后生效
     haptic('tap')
   }
   const changeReasoning = (on) => {
+    if (!settingSet(GK.reasoning, on)) return
     setReasoningState(on)
-    writeBoolKey(REASONING_KEY, on)
     haptic('tap')
   }
   const changeEmbedMode = (id) => {
+    if (!settingSet(GK.embedMode, id)) return
     setEmbedModeState(id)
-    writeSimpleKey(EMBED_MODE_KEY, id)
     haptic('tap')
   }
   const changePopout = (on) => {
+    if (!settingSet(GK.popout, on)) return
     setPopoutState(on)
-    // v3.3.0：原经官方 atom 即时停靠浮框，合规降级为同键直写（重启生效）
-    writeBoolKey(POPOUT_KEY, on)
     haptic('tap')
   }
   const changeAppActions = (id) => {
+    if (!settingSet(GK.appActions, id)) return
     setAppActionsState(id)
-    writeSimpleKey(APP_ACTIONS_KEY, id)
     haptic('tap')
   }
   const [translucencyMode, setTranslucencyModeState] = useState(() => {
@@ -1158,20 +1185,20 @@ function AppearancePanel() {
   }
 
   const setDensity = (id) => {
+    if (!settingSet(GK.density, id)) return
     setDensityState(id)
-    writeSimpleKey(DENSITY_KEY, id)
     haptic('tap')
   }
 
   const setTabStrip = (id) => {
+    if (!settingSet(GK.tabStrip, id)) return
     setTabStripState(id)
-    writeSimpleKey(TABSTRIP_KEY, id)   // 官方消费方渲染时读值，重渲染/重启后生效
     haptic('tap')
   }
 
   const toggleBackdrop = (on) => {
+    if (!settingSet(GK.backdrop, on)) return
     setBackdropState(on)
-    writeBackdrop(on)
     haptic('tap')
   }
 
@@ -1452,6 +1479,7 @@ function AppearancePanel() {
         options: TABSTRIP_OPTIONS.map((o) => ({ ...o, label: label(o) })),
         value: tabStrip,
         onChange: setTabStrip,
+        disabled: !settingHas(GK.tabStrip),
         stacked: stackedLayout,
         onEnter: () => hover('tabstrip.desc')
       }),
@@ -1462,6 +1490,7 @@ function AppearancePanel() {
         options: DENSITY_OPTIONS.map((o) => ({ ...o, label: label(o) })),
         value: density,
         onChange: setDensity,
+        disabled: !settingHas(GK.density),
         stacked: locale === 'en',
         onEnter: () => hover('density.desc')
       }),
@@ -1507,6 +1536,7 @@ function AppearancePanel() {
         ],
         value: backdrop ? 'on' : 'off',
         onChange: (id) => toggleBackdrop(id === 'on'),
+        disabled: !settingHas(GK.backdrop),
         stacked: false,
         onEnter: () => hover('backdrop.desc')
       }),
@@ -1678,6 +1708,7 @@ function AppearancePanel() {
         ],
         value: toolViewMode,
         onChange: changeToolViewMode,
+        disabled: !settingHas(GK.toolView),
         stacked: stackedLayout,
         onEnter: () => hover('behavior.toolViewDesc')
       }),
@@ -1689,6 +1720,7 @@ function AppearancePanel() {
         ],
         value: reasoningCollapsed ? 'on' : 'off',
         onChange: (id) => changeReasoning(id === 'on'),
+        disabled: !settingHas(GK.reasoning),
         stacked: stackedLayout,
         onEnter: () => hover('behavior.reasoningDesc')
       }),
@@ -1701,6 +1733,7 @@ function AppearancePanel() {
         ],
         value: embedMode,
         onChange: changeEmbedMode,
+        disabled: !settingHas(GK.embedMode),
         stacked: stackedLayout,
         onEnter: () => hover('behavior.embedsDesc')
       }),
@@ -1712,6 +1745,7 @@ function AppearancePanel() {
         ],
         value: popoutEnabled ? 'on' : 'off',
         onChange: (id) => changePopout(id === 'on'),
+        disabled: !settingHas(GK.popout),
         stacked: stackedLayout,
         onEnter: () => hover('behavior.popoutDesc')
       }),
@@ -1723,6 +1757,7 @@ function AppearancePanel() {
         ],
         value: appActionsSide,
         onChange: changeAppActions,
+        disabled: !settingHas(GK.appActions),
         stacked: stackedLayout,
         onEnter: () => hover('behavior.appActionsDesc')
       }),
