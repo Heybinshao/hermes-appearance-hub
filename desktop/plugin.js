@@ -62,7 +62,8 @@ export const LOCALES = {
       reasoning: 'Collapse Thinking by Default', reasoningDesc: 'Keep streamed reasoning available without expanding it until you open it.',
       embeds: 'Inline Embeds', embedsDesc: 'Rich previews from third-party sites (YouTube, X, …). Ask shows a placeholder; Always auto-loads; Off keeps plain links.', ask: 'Ask', always: 'Always', offEmbed: 'Off',
       popout: 'Floating Composer', popoutDesc: 'Allow dragging the composer out of its dock. Off locks it at the bottom.',
-      appActions: 'App Actions', appActionsDesc: 'Where Settings, Layout, and HUD sit in the titlebar. Right leaves room for tabs.', left: 'Left', right: 'Right'
+      appActions: 'App Actions', appActionsDesc: 'Where Settings, Layout, and HUD sit in the titlebar. Right leaves room for tabs.', left: 'Left', right: 'Right',
+      pet: 'Desktop Pet', petDesc: 'The floating companion pet. Mirrors Settings → Pet — switching follows the same gateway RPC as the native page.', noPet: 'No pet installed — pick one in Settings → Pet first'
     },
     zoom: { title: 'UI Scale', desc: 'Native scaling · synced with Settings/View menu' },
     footer: { tip: 'Hover any setting for details · Changes apply instantly' },
@@ -110,7 +111,8 @@ export const LOCALES = {
       reasoning: '默认折叠推理过程', reasoningDesc: '保留流式推理内容，但在你打开前保持折叠。',
       embeds: '内嵌预览', embedsDesc: '富预览会从第三方网站（YouTube、X 等）加载。询问显示占位符；总是自动加载；关闭保留纯链接。', ask: '询问', always: '总是', offEmbed: '关闭',
       popout: '悬浮输入框', popoutDesc: '允许将输入框拖出底部停靠区。关闭后，输入框会锁定在底部。',
-      appActions: '应用操作', appActionsDesc: '设置、布局和 HUD 放在标题栏左侧还是右侧。选右侧可给标签留出左边空间。', left: '左侧', right: '右侧'
+      appActions: '应用操作', appActionsDesc: '设置、布局和 HUD 放在标题栏左侧还是右侧。选右侧可给标签留出左边空间。', left: '左侧', right: '右侧',
+      pet: '桌面宠物', petDesc: '悬浮伴侣宠物。与设置 → 宠物 同步——开关走同一网关 RPC 通道。', noPet: '尚未安装宠物——请先在设置 → 宠物 中挑选'
     },
     zoom: { title: '界面缩放', desc: '缩放整个应用的文字和界面，与系统设置/View 菜单同步。' },
     footer: { tip: '悬停任一设置项查看说明 · 改动即时生效' },
@@ -158,7 +160,8 @@ export const LOCALES = {
       reasoning: '預設摺疊推理過程', reasoningDesc: '保留串流推理內容，但在您開啟前維持摺疊。',
       embeds: '內嵌預覽', embedsDesc: '豐富預覽會從第三方網站（YouTube、X 等）載入。詢問會在你允許前顯示佔位符；一律會自動載入；關閉則保留純連結。', ask: '詢問', always: '一律', offEmbed: '關閉',
       popout: '懸浮輸入框', popoutDesc: '允許將輸入框拖出底部停靠區。關閉後，輸入框會鎖定在底部。',
-      appActions: '應用操作', appActionsDesc: '設定、版面與 HUD 放在標題列左側或右側。選右側可把左側留給分頁。', left: '左側', right: '右側'
+      appActions: '應用操作', appActionsDesc: '設定、版面與 HUD 放在標題列左側或右側。選右側可把左側留給分頁。', left: '左側', right: '右側',
+      pet: '桌面寵物', petDesc: '懸浮伴侶寵物。與設定 → 寵物 同步——開關走同一閘道 RPC 通道。', noPet: '尚未安裝寵物——請先在設定 → 寵物 中挑選'
     },
     zoom: { title: '介面縮放', desc: '縮放整個應用程式的文字與介面，與設定/檢視選單同步。' },
     footer: { tip: '懸停任一設定項查看說明 · 變更即時生效' },
@@ -396,6 +399,64 @@ const GK = {
   embedMode: 'embed-mode',
   appActions: 'titlebarAppActions',
   bubble: 'user-bubble-transparency.v1'
+}
+
+// ── 桌面宠物（官方网关正门：host.request JSON-RPC）──────────────────
+// 宠物状态是后端 profile 级持久化（pet.gallery/pet.select/pet.disable 均
+// @profile-scoped），#120924 网关白名单装不下它（非本地 atom）。官方设置页
+// 走 useGatewayRequest → 同一 pet RPC 通道；host.request 就是这条正门的插件版，
+// 零 reach-in、零新门需求。语义镜像 src/store/pet-gallery.ts setPetEnabled：
+// 开=取 active（无则首个 installed）→ pet.select {slug}；关=pet.disable。
+// pet.changed 事件驱动重拉，与官方 floating-pet 同一刷新源。
+const petState = { enabled: false, active: '', hasInstalled: false, loaded: false, busy: false }
+const petSubscribers = new Set()
+
+function petNotify() { for (const cb of Array.from(petSubscribers)) { try { cb() } catch {} } }
+
+async function petLoad() {
+  if (petState.busy) return
+  if (typeof host.request !== 'function') return
+  petState.busy = true
+  try {
+    const g = await host.request('pet.gallery', { localOnly: true })
+    petState.enabled = Boolean(g && g.enabled)
+    petState.active = (g && g.active) || ''
+    petState.hasInstalled = Boolean(g && Array.isArray(g.pets) && g.pets.some((p) => p.installed))
+    petState.loaded = true
+  } catch {
+    // 后端早于 pet RPC（method-not-found）或网关未连：行不显示，静默
+    petState.loaded = false
+  } finally {
+    petState.busy = false
+    petNotify()
+  }
+}
+
+// 返回 true=成功；'none'=无可用宠物；false=RPC 失败（已 notify）
+async function petSetEnabled(on) {
+  if (petState.busy) return false
+  petState.busy = true
+  petNotify()
+  try {
+    if (on) {
+      const g = await host.request('pet.gallery', { localOnly: true })
+      const slug = (g && g.active) || ((g && g.pets) || []).find((p) => p.installed)?.slug || ''
+      if (!slug) { petState.hasInstalled = false; return 'none' }
+      await host.request('pet.select', { slug })
+      petState.active = slug
+    } else {
+      await host.request('pet.disable')
+    }
+    petState.enabled = on
+    return true
+  } catch (e) {
+    host.notify({ kind: 'error', message: 'Pet RPC failed: ' + String((e && e.message) || e) })
+    return false
+  } finally {
+    petState.busy = false
+    petNotify()
+    void petLoad()
+  }
 }
 
 // ── 纸纹 ────────────────────────────────────────────────────────
@@ -1035,6 +1096,27 @@ function AppearancePanel() {
   const [embedMode, setEmbedModeState] = useState(() => settingGet(GK.embedMode, 'ask'))
   const [popoutEnabled, setPopoutState] = useState(() => settingGet(GK.popout, true))
   const [appActionsSide, setAppActionsState] = useState(() => settingGet(GK.appActions, 'right'))
+
+  // 桌面宠物：host.request 后端态，面板挂载时拉一次 + 订阅 petState 变更。
+  // loaded=false（无 host.request / 旧后端无 pet RPC / 网关未连）→ 整行不渲染。
+  const [, petTick] = useState(0)
+  useEffect(() => {
+    const bump = () => petTick((n) => n + 1)
+    petSubscribers.add(bump)
+    void petLoad()
+    // 官方设置页/宠物自己变化经后端广播；事件缺席时面板重开（重挂载）自拉
+    let offEvent = null
+    try { if (typeof host.onEvent === 'function') offEvent = host.onEvent('pet.changed', () => { void petLoad() }) } catch {}
+    return () => {
+      petSubscribers.delete(bump)
+      try { offEvent && offEvent() } catch {}
+    }
+  }, [])
+  const changePet = async (on) => {
+    const r = await petSetEnabled(on)
+    if (r === 'none') host.notify({ kind: 'info', message: t('behavior.noPet') })
+    else if (r === true) haptic('tap')
+  }
 
   // 网关订阅：官方设置页/其他窗口改动 → 面板高亮实时跟平
   useEffect(() => {
@@ -1770,6 +1852,19 @@ function AppearancePanel() {
         stacked: stackedLayout,
         onEnter: gateHover(GK.appActions, 'behavior.appActionsDesc')
       }),
+      // 桌面宠物（host.request 后端态；loaded=false 整行不渲染——旧后端无 pet RPC 时零噪声）
+      ...(petState.loaded ? [jsx(BehaviorRow, {
+        title: t('behavior.pet'),
+        options: [
+          { id: 'off', label: t('intro.off') },
+          { id: 'on', label: t('intro.on') }
+        ],
+        value: petState.enabled ? 'on' : 'off',
+        onChange: (id) => { void changePet(id === 'on') },
+        disabled: petState.busy,
+        stacked: stackedLayout,
+        onEnter: () => hover('behavior.petDesc')
+      })] : []),
 
       // 底部说明带：左=悬停联动（空载显示占位 tip），右=界面缩放（悬停缩放条也联动）
       jsxs('div', {
