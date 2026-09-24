@@ -63,7 +63,10 @@ export const LOCALES = {
       embeds: 'Inline Embeds', embedsDesc: 'Rich previews from third-party sites (YouTube, X, …). Ask shows a placeholder; Always auto-loads; Off keeps plain links.', ask: 'Ask', always: 'Always', offEmbed: 'Off',
       popout: 'Floating Composer', popoutDesc: 'Allow dragging the composer out of its dock. Off locks it at the bottom.',
       appActions: 'App Actions', appActionsDesc: 'Where Settings, Layout, and HUD sit in the titlebar. Right leaves room for tabs.', left: 'Left', right: 'Right',
-      pet: 'Desktop Pet', petDesc: 'The floating companion pet. Mirrors Settings → Pet — switching follows the same gateway RPC as the native page.', noPet: 'No pet installed — pick one in Settings → Pet first'
+      pet: 'Desktop Pet', petDesc: 'The floating companion pet. Mirrors Settings → Pet — switching follows the same gateway RPC as the native page.', noPet: 'No pet installed — pick one in Settings → Pet first',
+      interfaceMode: 'Interface Mode', interfaceModeDesc: 'Simple = chat only (sidebar + conversation); Advanced = the full developer surface. Changes only what is shown, never what Hermes can do.', simple: 'Simple', advanced: 'Advanced',
+      timeline: 'Hide Thread Timeline', timelineDesc: 'Hide the navigation bar along the right edge of each conversation.',
+      tray: 'Minimize to Tray', trayDesc: 'Minimizing or closing the main window hides it to the system tray (menu bar on macOS) and keeps Hermes running. Quit via the tray menu or Cmd+Q. Applies to this device only.', trayUnavailable: 'System tray unavailable — windows minimize and close normally. Toggle off and on again to retry.'
     },
     zoom: { title: 'UI Scale', desc: 'Native scaling · synced with Settings/View menu' },
     footer: { tip: 'Hover any setting for details · Changes apply instantly' },
@@ -112,7 +115,10 @@ export const LOCALES = {
       embeds: '内嵌预览', embedsDesc: '富预览会从第三方网站（YouTube、X 等）加载。询问显示占位符；总是自动加载；关闭保留纯链接。', ask: '询问', always: '总是', offEmbed: '关闭',
       popout: '悬浮输入框', popoutDesc: '允许将输入框拖出底部停靠区。关闭后，输入框会锁定在底部。',
       appActions: '应用操作', appActionsDesc: '设置、布局和 HUD 放在标题栏左侧还是右侧。选右侧可给标签留出左边空间。', left: '左侧', right: '右侧',
-      pet: '桌面宠物', petDesc: '悬浮伴侣宠物。与设置 → 宠物 同步——开关走同一网关 RPC 通道。', noPet: '尚未安装宠物——请先在设置 → 宠物 中挑选'
+      pet: '桌面宠物', petDesc: '悬浮伴侣宠物。与设置 → 宠物 同步——开关走同一网关 RPC 通道。', noPet: '尚未安装宠物——请先在设置 → 宠物 中挑选',
+      interfaceMode: '界面模式', interfaceModeDesc: '简洁=只留侧边栏和对话；高级=完整开发面。只改变显示的内容，不改变 Hermes 的能力。', simple: '简洁', advanced: '高级',
+      timeline: '隐藏对话时间线条', timelineDesc: '隐藏每个对话右侧边缘的导航条。',
+      tray: '最小化到托盘', trayDesc: '最小化窗口或关闭主窗口时，将其隐藏到系统托盘（macOS 上为菜单栏），让 Hermes 继续运行。通过托盘菜单中的「退出 Hermes」或 Cmd+Q 退出。仅适用于此设备。', trayUnavailable: '系统托盘不可用。窗口将正常最小化和关闭。关闭此选项后重新开启即可重试。'
     },
     zoom: { title: '界面缩放', desc: '缩放整个应用的文字和界面，与系统设置/View 菜单同步。' },
     footer: { tip: '悬停任一设置项查看说明 · 改动即时生效' },
@@ -161,7 +167,10 @@ export const LOCALES = {
       embeds: '內嵌預覽', embedsDesc: '豐富預覽會從第三方網站（YouTube、X 等）載入。詢問會在你允許前顯示佔位符；一律會自動載入；關閉則保留純連結。', ask: '詢問', always: '一律', offEmbed: '關閉',
       popout: '懸浮輸入框', popoutDesc: '允許將輸入框拖出底部停靠區。關閉後，輸入框會鎖定在底部。',
       appActions: '應用操作', appActionsDesc: '設定、版面與 HUD 放在標題列左側或右側。選右側可把左側留給分頁。', left: '左側', right: '右側',
-      pet: '桌面寵物', petDesc: '懸浮伴侶寵物。與設定 → 寵物 同步——開關走同一閘道 RPC 通道。', noPet: '尚未安裝寵物——請先在設定 → 寵物 中挑選'
+      pet: '桌面寵物', petDesc: '懸浮伴侶寵物。與設定 → 寵物 同步——開關走同一閘道 RPC 通道。', noPet: '尚未安裝寵物——請先在設定 → 寵物 中挑選',
+      interfaceMode: '介面模式', interfaceModeDesc: '簡潔=只留側邊欄和聊天；進階=完整開發面。只改變顯示的內容，不改變 Hermes 的能力。', simple: '簡潔', advanced: '進階',
+      timeline: '隱藏對話時間軸列', timelineDesc: '隱藏每個對話右側邊緣的導覽列。',
+      tray: '最小化至系統匣', trayDesc: '最小化視窗或關閉主視窗時，將其隱藏至系統匣（macOS 上為選單列），讓 Hermes 繼續執行。透過系統匣選單中的「結束 Hermes」或 Cmd+Q 結束。僅適用於此裝置。', trayUnavailable: '系統匣無法使用。視窗將正常最小化和關閉。關閉此選項後重新開啟即可重試。'
     },
     zoom: { title: '介面縮放', desc: '縮放整個應用程式的文字與介面，與設定/檢視選單同步。' },
     footer: { tip: '懸停任一設定項查看說明 · 變更即時生效' },
@@ -398,7 +407,57 @@ const GK = {
   toolView: 'toolView.technical',
   embedMode: 'embed-mode',
   appActions: 'titlebarAppActions',
-  bubble: 'user-bubble-transparency.v1'
+  bubble: 'user-bubble-transparency.v1',
+  // v4.1 新增三行的门键（扩名单诉求未落前〔见 issue 草稿 A 项〕，门缺席走本地兜底）
+  timeline: 'hideThreadTimeline',
+  interfaceMode: 'interfaceMode.v1'
+}
+
+// GK 值=网关短名（未来 binding 名）；官方 localStorage 键带 hermes.desktop.
+// 前缀，兜底路径必须写全键——逐字对官方 store 常量（thread-timeline.ts /
+// interface-mode.ts）。
+const GKL = {
+  timeline: 'hermes.desktop.hideThreadTimeline',
+  interfaceMode: 'hermes.desktop.interfaceMode.v1'
+}
+
+// ── v4.1 三通道辅助（门优先，缺席本地兜底）────────────────────────
+// settingHas 只认真门；本地键读写用于扩名单落地前的过渡（与 #116338 裁决
+// (b) 的张力已知：过渡兜底、门一落地自动失效——发布版提交前须把兜底翻回
+// 禁用态，见 issue A 项）。
+// ⚠ 兜底路径只有重启生效语义（官方 atom 无 storage 监听，同 intro-splash v3
+// 结论）：写键保重启后一致，即时生效要等门。tray 例外——桥本身即时。
+// 键格式逐字对官方 codec：boolean 存 'true'/'false'（storedBoolean）；
+// interfaceMode 存裸串且 default(advanced) 删键（modeCodec encode→null）。
+function gateOrLocalGet(shortKey, fallback) {
+  if (settingHas(shortKey)) return settingGet(shortKey, fallback)
+  try {
+    const raw = localStorage.getItem(GKL[shortKey] || shortKey)
+    if (raw === null) return fallback
+    if (fallback === true || fallback === false) return raw === 'true'
+    return raw
+  } catch { return fallback }
+}
+
+function gateOrLocalSet(shortKey, value) {
+  if (settingHas(shortKey)) return settingSet(shortKey, value)
+  const gk = GKL[shortKey] || shortKey
+  try {
+    if (value === null || value === undefined) localStorage.removeItem(gk)
+    else if (typeof value === 'boolean') localStorage.setItem(gk, String(value))
+    else if (value === 'advanced') localStorage.removeItem(gk)  // modeCodec：默认档删键
+    else localStorage.setItem(gk, String(value))
+    window.dispatchEvent(new StorageEvent('storage', { key: gk }))
+    return true
+  } catch { return false }
+}
+
+// 最小化到托盘：主进程态，无本地 atom——preload 桥 hermesDesktop.minimizeToTray
+// （get/set/onChanged，{enabled, available}），官方设置页同一通道。属 window
+// bridge 追讨范围（host.window 第三半）；typed 前作为已裁决 hold 项保留（现场功能）。
+function trayBridge() {
+  const b = typeof window !== 'undefined' && window.hermesDesktop && window.hermesDesktop.minimizeToTray
+  return b && typeof b.get === 'function' ? b : null
 }
 
 // ── 桌面宠物（官方网关正门：host.request JSON-RPC）──────────────────
@@ -1096,6 +1155,41 @@ function AppearancePanel() {
   const [embedMode, setEmbedModeState] = useState(() => settingGet(GK.embedMode, 'ask'))
   const [popoutEnabled, setPopoutState] = useState(() => settingGet(GK.popout, true))
   const [appActionsSide, setAppActionsState] = useState(() => settingGet(GK.appActions, 'right'))
+  // v4.1 新增：界面模式 / 隐藏时间线条（门优先，兜底=官方键直写·重启生效）
+  const [interfaceMode, setInterfaceModeState] = useState(() => gateOrLocalGet('interfaceMode.v1', 'advanced'))
+  const [timelineHidden, setTimelineHiddenState] = useState(() => gateOrLocalGet('hideThreadTimeline', false))
+  const changeInterfaceMode = (id) => {
+    if (!gateOrLocalSet('interfaceMode.v1', id)) return
+    setInterfaceModeState(id)
+    haptic('tap')
+  }
+  const changeTimeline = (on) => {
+    if (!gateOrLocalSet('hideThreadTimeline', on)) return
+    setTimelineHiddenState(on)
+    haptic('tap')
+  }
+  // v4.1 新增：最小化到托盘（主进程桥，即时生效；桥缺席=整行不渲染）
+  const [tray, setTrayState] = useState(null)
+  useEffect(() => {
+    const b = trayBridge()
+    if (!b) return undefined
+    let alive = true
+    Promise.resolve(b.get()).then((s) => { if (alive && s) setTrayState(s) }).catch(() => {})
+    let off = null
+    try { off = b.onChanged ? b.onChanged((s) => { if (alive) setTrayState(s) }) : null } catch {}
+    return () => { alive = false; try { off && off() } catch {} }
+  }, [])
+  const changeTray = async (on) => {
+    const b = trayBridge()
+    if (!b) return
+    try {
+      const next = await b.set(on)
+      if (next) setTrayState(next)
+      haptic('tap')
+    } catch (e) {
+      host.notify({ kind: 'error', message: 'minimizeToTray set failed: ' + String((e && e.message) || e) })
+    }
+  }
 
   // 桌面宠物：host.request 后端态，面板挂载时拉一次 + 订阅 petState 变更。
   // loaded=false（无 host.request / 旧后端无 pet RPC / 网关未连）→ 整行不渲染。
@@ -1852,19 +1946,6 @@ function AppearancePanel() {
         stacked: stackedLayout,
         onEnter: gateHover(GK.appActions, 'behavior.appActionsDesc')
       }),
-      // 桌面宠物（host.request 后端态；loaded=false 整行不渲染——旧后端无 pet RPC 时零噪声）
-      ...(petState.loaded ? [jsx(BehaviorRow, {
-        title: t('behavior.pet'),
-        options: [
-          { id: 'off', label: t('intro.off') },
-          { id: 'on', label: t('intro.on') }
-        ],
-        value: petState.enabled ? 'on' : 'off',
-        onChange: (id) => { void changePet(id === 'on') },
-        disabled: petState.busy,
-        stacked: stackedLayout,
-        onEnter: () => hover('behavior.petDesc')
-      })] : []),
 
       // 底部说明带：左=悬停联动（空载显示占位 tip），右=界面缩放（悬停缩放条也联动）
       jsxs('div', {
@@ -1893,9 +1974,62 @@ function AppearancePanel() {
     ]
   // 区块索引：0=标题 1=主题 2=字体 3=纸纹 4=标签栏 5=密度 6=消息气泡 7=聊天背景 8=窗口透明
   //          9=开场标识 10-14=行为五件套（工具/推理/内嵌/悬浮框/应用操作） 15=底部提示+缩放
+  // ⚠ v4.1 教训：新增行禁进 secChildren——下方按位置解构，追加/条件展开会整体位移
+  //（宠物行曾把 secFooter 挤出装配=缩放消失）。新行一律独立变量直接进列。
   const [secTitle, secTheme, secFont, secPaper, secTabStrip, secDensity, secBubble, secBackdrop,
          secTranslucency, secIntro, secToolView, secReasoning, secEmbeds, secPopout,
          secAppActions, secFooter] = secChildren
+
+  // ── v4.1 四新行（独立常量；条件行缺席=null，列数组直接容纳）──
+  const secInterfaceMode = jsx(BehaviorRow, {
+    title: t('behavior.interfaceMode'),
+    options: [
+      { id: 'simple', label: t('behavior.simple') },
+      { id: 'advanced', label: t('behavior.advanced') }
+    ],
+    value: interfaceMode,
+    onChange: changeInterfaceMode,
+    disabled: !settingHas(GK.interfaceMode),
+    stacked: stackedLayout,
+    onEnter: gateHover(GK.interfaceMode, 'behavior.interfaceModeDesc')
+  })
+  const secTimeline = jsx(BehaviorRow, {
+    title: t('behavior.timeline'),
+    options: [
+      { id: 'off', label: t('intro.off') },
+      { id: 'on', label: t('intro.on') }
+    ],
+    value: timelineHidden ? 'on' : 'off',
+    onChange: (id) => changeTimeline(id === 'on'),
+    disabled: !settingHas(GK.timeline),
+    stacked: stackedLayout,
+    onEnter: gateHover(GK.timeline, 'behavior.timelineDesc')
+  })
+  const secTray = tray ? jsx(BehaviorRow, {
+    title: t('behavior.tray'),
+    options: [
+      { id: 'off', label: t('intro.off') },
+      { id: 'on', label: t('intro.on') }
+    ],
+    value: tray.enabled ? 'on' : 'off',
+    onChange: (id) => { void changeTray(id === 'on') },
+    disabled: tray.available === false,
+    stacked: stackedLayout,
+    onEnter: () => hover(tray.available === false ? 'behavior.trayUnavailable' : 'behavior.trayDesc')
+  }) : null
+  const secPet = petState.loaded ? jsx(BehaviorRow, {
+    title: t('behavior.pet'),
+    options: [
+      { id: 'off', label: t('intro.off') },
+      { id: 'on', label: t('intro.on') }
+    ],
+    value: petState.enabled ? 'on' : 'off',
+    onChange: (id) => { void changePet(id === 'on') },
+    disabled: petState.busy,
+    stacked: stackedLayout,
+    onEnter: () => hover('behavior.petDesc')
+  }) : null
+
 
   // 双栏（唯一布局）：标题通栏 + 左右两列 + 底部提示
   return jsxs('div', {
@@ -1906,18 +2040,18 @@ function AppearancePanel() {
       jsxs('div', {
         className: 'flex flex-row',
         children: [
-          // 左列：主题 → 聊天背景 → 悬浮输入框 → 折叠推理 → 应用操作 → 工具调用 → 内嵌预览 → 标签栏 → 密度
+          // 左列：主题 → 聊天背景 → 悬浮输入框 → 折叠推理 → 应用操作 → 工具调用 → 内嵌预览 → 标签栏 → 密度 → 界面模式 → 时间线条
           jsxs('div', {
             className: 'flex min-w-0 flex-1 flex-col',
             style: { paddingRight: '12px' },
             children: [secTheme, secBackdrop, secPopout, secReasoning, secAppActions,
-                      secToolView, secEmbeds, secTabStrip, secDensity]
+                      secToolView, secEmbeds, secTabStrip, secDensity, secInterfaceMode, secTimeline]
           }),
-          // 右列：消息气泡 → 窗口透明 → 霞鹜文楷 → 纸纹模拟 → 开场标识（pl 内联，与左列对称）
+          // 右列：消息气泡 → 窗口透明 → 霞鹜文楷 → 纸纹模拟 → 开场标识 → 最小化托盘 → 宠物（pl 内联，与左列对称）
           jsxs('div', {
             className: 'flex min-w-0 flex-1 flex-col border-l border-(--ui-stroke-secondary)',
             style: { paddingLeft: '12px' },
-            children: [secBubble, secTranslucency, secFont, secPaper, secIntro]
+            children: [secBubble, secTranslucency, secFont, secPaper, secIntro, secTray, secPet]
           })
         ]
       }),
