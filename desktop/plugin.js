@@ -340,14 +340,18 @@ const BehaviorRow = ({ title, options, value, onChange, stacked, onEnter, disabl
       children: jsx(OfficialListRow, {
         title,
         wide: true,
-        action: jsx(SegmentedControl, {
-          options,
-          value,
-          onChange,
-          disabled,
-          // v4.1 对齐约束保留：面板控件列统一 150px 定宽（左右缘两条线全齐），
-          // 官方 wide 行内容定宽会随选项数跳左缘
-          style: { width: '150px', flexShrink: 0 }
+        // 官方 SegmentedControl 不收 style（props 无 rest spread），定宽只能包外层
+        // div + className:'w-full' 覆盖其自带 w-fit（cn=tailwind-merge 后者胜）。
+        // v4.1 对齐线保留：控件列恒 150px，左右缘两条线全齐。
+        action: jsx('div', {
+          style: { width: '150px', flexShrink: 0 },
+          children: jsx(SegmentedControl, {
+            options,
+            value,
+            onChange,
+            disabled,
+            className: 'w-full'
+          })
         })
       })
     })
