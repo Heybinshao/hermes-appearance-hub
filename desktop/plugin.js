@@ -319,6 +319,13 @@ const ControlRow = ({ label, children }) =>
 // 分支有意义）。onEnter 由面板注入（hover→底部说明带联动），外层 div 承接。
 // 必须模块级定义——放组件体内每次渲染新引用，React 卸载重挂子树。
 const OFF_ON_IDS = ['off,on']
+// v4.2 官方件行的「行壳」：v4.1 每行自绘壳是
+// `rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)`，官方 ListRow/ToggleRow
+// 自带的是 `py-3` 且无 hover 高亮——直接渲染会让 12 个设置行①失去悬停高亮、
+// ②上下留白比气泡/透明等自绘行多 4px、③行高不齐。这里把 v4.1 的行壳套回去：
+// 同款 padding/圆角/悬停高亮，负 margin 抵消官方 py-3 使总间距回到 8px。
+const officialRowShell = 'rounded-md px-2 -my-1 py-2 hover:bg-(--chrome-action-hover)'
+
 const BehaviorRow = ({ title, options, value, onChange, stacked, onEnter, disabled }) => {
   if (hasOfficialRows && options?.length) {
     // 布尔行：面板内所有 off/on 行 id 恒为 off/on（工具视图/应用操作等二选非
@@ -326,6 +333,7 @@ const BehaviorRow = ({ title, options, value, onChange, stacked, onEnter, disabl
     if (OFF_ON_IDS.includes(options.map((o) => o.id).sort().join(','))) {
       return jsx('div', {
         onMouseEnter: onEnter,
+        className: officialRowShell,
         children: jsx(OfficialToggleRow, {
           label: title,
           checked: value === 'on',
@@ -337,6 +345,7 @@ const BehaviorRow = ({ title, options, value, onChange, stacked, onEnter, disabl
     }
     return jsx('div', {
       onMouseEnter: onEnter,
+      className: officialRowShell,
       children: jsx(OfficialListRow, {
         title,
         wide: true,
@@ -1634,9 +1643,10 @@ function AppearancePanel() {
         children: [
           hasOfficialRows
             ? jsx('div', {
-                // flex items-center 容器里 flex item 按内容收缩 → 行内标题被压窄
-                // 竖排、开关卡中间。铺满宽度恢复 block 语义（纸纹/开场标识两处同修）
+                // 同 BehaviorRow：铺满防标题压缩竖排 + 套 v4.1 行壳（纸纹整块
+                // 已有自己的容器壳，这里只补内层的 padding/hover 语义）
                 style: { width: '100%' },
+                className: officialRowShell,
                 children: jsx(OfficialToggleRow, {
                   label: t('paper.title'),
                   checked: Boolean(paper),
@@ -1887,8 +1897,9 @@ function AppearancePanel() {
             className: 'flex items-center gap-2.5',
             children: hasOfficialRows
               ? jsx('div', {
-                  // 同纸纹行：flex 容器内铺满，防标题压缩竖排
+                  // 同纸纹行：铺满防标题压缩竖排 + 套 v4.1 行壳
                   style: { width: '100%' },
+                  className: officialRowShell,
                   children: jsx(OfficialToggleRow, {
                     label: t('intro.title'),
                     checked: Boolean(introOn),
