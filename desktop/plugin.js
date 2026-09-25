@@ -324,12 +324,9 @@ const OFF_ON_IDS = ['off,on']
 // 自带的是 `py-3` 且无 hover 高亮——直接渲染会让 12 个设置行①失去悬停高亮、
 // ②上下留白比气泡/透明等自绘行多 4px、③行高不齐。这里把 v4.1 的行壳套回去：
 // 同款 padding/圆角/悬停高亮，负 margin 抵消官方 py-3 使总间距回到 8px。
-// 置灰行不带 hover 高亮：背景高亮是「可交互」的通用信号，门未开的行发这个
-// 信号就是骗人（文字/说明带提示保留——那才是置灰行该给的信息）。
-const officialRowShell = (disabled) =>
-  disabled
-    ? 'rounded-md px-2 -my-1 py-2'
-    : 'rounded-md px-2 -my-1 py-2 hover:bg-(--chrome-action-hover)'
+// ⚠ 置灰行**保留**行框 hover 高亮——它配的是底部说明带（门态提示「需新版桌面端」），
+// 是「这行有说明」的正确信号；真正该掐的是行内控件的文字响应（见 choiceControl）。
+const officialRowShell = 'rounded-md px-2 -my-1 py-2 hover:bg-(--chrome-action-hover)'
 
 // 官方 SegmentedControl 的 disabled 只做 opacity-50，内部 button 的
 // `hover:text-foreground` 没有 disabled 变体（src/components/ui/segmented-control.tsx），
@@ -354,7 +351,7 @@ const BehaviorRow = ({ title, options, value, onChange, stacked, onEnter, disabl
     if (OFF_ON_IDS.includes(options.map((o) => o.id).sort().join(','))) {
       return jsx('div', {
         onMouseEnter: onEnter,
-        className: officialRowShell(disabled),
+        className: officialRowShell,
         children: jsx(OfficialToggleRow, {
           label: title,
           checked: value === 'on',
@@ -366,7 +363,7 @@ const BehaviorRow = ({ title, options, value, onChange, stacked, onEnter, disabl
     }
     return jsx('div', {
       onMouseEnter: onEnter,
-      className: officialRowShell(disabled),
+      className: officialRowShell,
       children: jsx(OfficialListRow, {
         title,
         wide: true,
@@ -379,14 +376,10 @@ const BehaviorRow = ({ title, options, value, onChange, stacked, onEnter, disabl
   }
   return jsxs('div', {
     onMouseEnter: onEnter,
-    // 置灰行不带 hover 高亮（与官方件行壳同一口径）
-    className: disabled
-      ? (stacked
-          ? 'flex flex-col gap-1.5 rounded-md px-2 py-2'
-          : 'flex items-center gap-2.5 rounded-md px-2 py-2')
-      : (stacked
-          ? 'flex flex-col gap-1.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)'
-          : 'flex items-center gap-2.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)'),
+    // 行框高亮恒在（含置灰行，它配的是底部说明带提示）；置灰只掐行内控件
+    className: stacked
+      ? 'flex flex-col gap-1.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)'
+      : 'flex items-center gap-2.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
     children: [
       jsx('div', {
         className: 'flex min-w-0 flex-1 items-center gap-2.5',
@@ -1761,14 +1754,10 @@ function AppearancePanel() {
       // 消息气泡（滑杆行无对应 BehaviorRow 形态，仅去图标+挂 hover）
       jsxs('div', {
         onMouseEnter: bubbleHover,
-        // 门未开（bubble 键未入名单）→ 不发 hover 高亮信号（同 officialRowShell 口径）
-        className: !settingHas(GK.bubble)
-          ? (stackedLayout
-              ? 'flex flex-col gap-1.5 rounded-md px-2 py-2'
-              : 'flex items-center gap-2.5 rounded-md px-2 py-2')
-          : (stackedLayout
-              ? 'flex flex-col gap-1.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)'
-              : 'flex items-center gap-2.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)'),
+        // 行框高亮恒在（配底部说明带提示）；置灰由内层滑杆 disabled
+        className: stackedLayout
+          ? 'flex flex-col gap-1.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)'
+          : 'flex items-center gap-2.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
         children: [
           jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: t('bubble.title') }),
           jsxs('div', {
@@ -1817,10 +1806,8 @@ function AppearancePanel() {
       // ⚠ pointerEvents:none 会连容器自己的 onMouseEnter 一起杀死（首版踩坑）。
       jsxs('div', {
         onMouseEnter: () => hover(windowOk ? 'translucency.desc' : 'gateNote.unavailable'),
-        // 门未开（host.window 未落）→ 整块置灰，不发 hover 高亮信号（同 officialRowShell 口径）
-        className: windowOk
-          ? 'flex flex-col gap-1.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)'
-          : 'flex flex-col gap-1.5 rounded-md px-2 py-2',
+        // 行框高亮恒在（配底部说明带的门态提示）；置灰由内层 5 个控件各自 disabled
+        className: 'flex flex-col gap-1.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
         children: [
           jsxs('div', {
             className: 'flex items-center gap-2.5',
