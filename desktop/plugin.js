@@ -1643,10 +1643,10 @@ function AppearancePanel() {
         children: [
           hasOfficialRows
             ? jsx('div', {
-                // 同 BehaviorRow：铺满防标题压缩竖排 + 套 v4.1 行壳（纸纹整块
-                // 已有自己的容器壳，这里只补内层的 padding/hover 语义）
+                // 纸纹整块外层已有 v4.1 行壳（rounded-md px-2 py-2 + hover 高亮），
+                // 内层只补「铺满防标题压缩竖排」——v4.2 曾在这里多套一层
+                // officialRowShell，导致 padding/负 margin 双层叠加、行高比邻行多 4px
                 style: { width: '100%' },
-                className: officialRowShell,
                 children: jsx(OfficialToggleRow, {
                   label: t('paper.title'),
                   checked: Boolean(paper),
@@ -1897,9 +1897,8 @@ function AppearancePanel() {
             className: 'flex items-center gap-2.5',
             children: hasOfficialRows
               ? jsx('div', {
-                  // 同纸纹行：铺满防标题压缩竖排 + 套 v4.1 行壳
+                  // 同纸纹：外层已是 v4.1 行壳，内层只补铺满（勿再叠 officialRowShell）
                   style: { width: '100%' },
-                  className: officialRowShell,
                   children: jsx(OfficialToggleRow, {
                     label: t('intro.title'),
                     checked: Boolean(introOn),
