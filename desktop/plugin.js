@@ -331,6 +331,22 @@ const officialRowShell = (disabled) =>
     ? 'rounded-md px-2 -my-1 py-2'
     : 'rounded-md px-2 -my-1 py-2 hover:bg-(--chrome-action-hover)'
 
+// 官方 SegmentedControl 的 disabled 只做 opacity-50，内部 button 的
+// `hover:text-foreground` 没有 disabled 变体（src/components/ui/segmented-control.tsx），
+// 置灰行悬停时未选中项文字照样变亮——官方页零星置灰看不出来，hub 十行灰就是刺眼
+// 违背。插件侧补一层：置灰时连控件一起掐 pointer（容器绝不掐，见 pointerEvents 坑）。
+const choiceControl = (options, value, onChange, disabled) =>
+  jsx('div', {
+    style: { width: '150px', flexShrink: 0, pointerEvents: disabled ? 'none' : undefined },
+    children: jsx(SegmentedControl, {
+      options,
+      value,
+      onChange,
+      disabled,
+      className: 'w-full'
+    })
+  })
+
 const BehaviorRow = ({ title, options, value, onChange, stacked, onEnter, disabled }) => {
   if (hasOfficialRows && options?.length) {
     // 布尔行：面板内所有 off/on 行 id 恒为 off/on（工具视图/应用操作等二选非
@@ -357,16 +373,7 @@ const BehaviorRow = ({ title, options, value, onChange, stacked, onEnter, disabl
         // 官方 SegmentedControl 不收 style（props 无 rest spread），定宽只能包外层
         // div + className:'w-full' 覆盖其自带 w-fit（cn=tailwind-merge 后者胜）。
         // v4.1 对齐线保留：控件列恒 150px，左右缘两条线全齐。
-        action: jsx('div', {
-          style: { width: '150px', flexShrink: 0 },
-          children: jsx(SegmentedControl, {
-            options,
-            value,
-            onChange,
-            disabled,
-            className: 'w-full'
-          })
-        })
+        action: choiceControl(options, value, onChange, disabled)
       })
     })
   }
@@ -385,13 +392,17 @@ const BehaviorRow = ({ title, options, value, onChange, stacked, onEnter, disabl
         className: 'flex min-w-0 flex-1 items-center gap-2.5',
         children: jsx('div', { className: 'min-w-0 text-[0.75rem] leading-tight', children: title })
       }),
-      jsx(SegmentedControl, {
-        options,
-        value,
-        onChange,
-        disabled,
-        className: stacked ? 'w-full' : 'ml-auto',
-        style: stacked ? undefined : { width: '150px', flexShrink: 0 }
+      jsx('div', {
+        // 置灰时掐指针：官方段控件的 hover 文字变亮没有 disabled 屏蔽（同 choiceControl 注）
+        style: stacked ? undefined : { pointerEvents: disabled ? 'none' : undefined },
+        children: jsx(SegmentedControl, {
+          options,
+          value,
+          onChange,
+          disabled,
+          className: stacked ? 'w-full' : 'ml-auto',
+          style: stacked ? undefined : { width: '150px', flexShrink: 0 }
+        })
       })
     ]
   })
