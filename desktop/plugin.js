@@ -314,11 +314,43 @@ const ControlRow = ({ label, children }) =>
   })
 
 // 行为/设置行（工具调用显示/折叠推理/内嵌预览/悬浮输入框/应用操作/密度等共用）：
-// 无图标无简介——单行标题 + 右侧定宽控件；stacked=en 纵向通栏。
-// onEnter 由面板注入（hover→底部说明带联动）。
+// v4.2：官方设置零件在场（wide 模式）→ 布尔行=ToggleRow+Switch、选择行=ListRow+
+// SegmentedControl，控件恒钉标题行右侧；旧构建回退 v4.1 自绘行（stacked 仅回退
+// 分支有意义）。onEnter 由面板注入（hover→底部说明带联动），外层 div 承接。
 // 必须模块级定义——放组件体内每次渲染新引用，React 卸载重挂子树。
-const BehaviorRow = ({ title, options, value, onChange, stacked, onEnter, disabled }) =>
-  jsxs('div', {
+const OFF_ON_IDS = ['off,on']
+const BehaviorRow = ({ title, options, value, onChange, stacked, onEnter, disabled }) => {
+  if (hasOfficialRows && options?.length) {
+    // 布尔行：面板内所有 off/on 行 id 恒为 off/on（工具视图/应用操作等二选非
+    // off/on 语义的走选择行，与官方「Switch 只配 on/off」裁决一致）
+    if (OFF_ON_IDS.includes(options.map((o) => o.id).sort().join(','))) {
+      return jsx('div', {
+        onMouseEnter: onEnter,
+        children: jsx(OfficialToggleRow, {
+          label: title,
+          checked: value === 'on',
+          onChange: (on) => onChange(on ? 'on' : 'off'),
+          disabled,
+          wide: true
+        })
+      })
+    }
+    return jsx('div', {
+      onMouseEnter: onEnter,
+      children: jsx(OfficialListRow, {
+        title,
+        wide: true,
+        action: jsx(SegmentedControl, {
+          options,
+          value,
+          onChange,
+          disabled,
+          style: { flexShrink: 0 }
+        })
+      })
+    })
+  }
+  return jsxs('div', {
     onMouseEnter: onEnter,
     className: stacked
       ? 'flex flex-col gap-1.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)'
@@ -338,6 +370,7 @@ const BehaviorRow = ({ title, options, value, onChange, stacked, onEnter, disabl
       })
     ]
   })
+}
 
 const INTRO_OPTIONS = [
   { id: 'native', labelKey: 'intro.native' },
@@ -356,10 +389,12 @@ function settingsGateway() {
   return s && typeof s.get === 'function' && typeof s.set === 'function' ? s : null
 }
 
-// ── v4.2 试装：官方设置零件探测（ToggleRow/ListRow）──
-// 仅这两行试点走官方件；其余行保持自绘 BehaviorRow。旧构建（无此导出）
-// 探测为 null → 渲染处回退 BehaviorRow，功能与观感与 v4.1 完全一致。
+// ── v4.2 试装：官方设置零件探测（ToggleRow/ListRow/Switch）──
+// 旧构建（无此导出）探测为 null → 渲染处回退自绘 BehaviorRow，功能与观感与 v4.1 一致。
 const OfficialToggleRow = typeof pluginSdk.ToggleRow === 'function' ? pluginSdk.ToggleRow : null
+const OfficialListRow = typeof pluginSdk.ListRow === 'function' ? pluginSdk.ListRow : null
+const OfficialSwitch = typeof pluginSdk.Switch === 'function' ? pluginSdk.Switch : null
+const hasOfficialRows = Boolean(OfficialToggleRow && OfficialListRow && OfficialSwitch)
 
 function settingGet(key, fallback) {
   const sg = settingsGateway()
@@ -1591,22 +1626,29 @@ function AppearancePanel() {
         onMouseEnter: () => hover('paper.desc'),
         className: 'flex flex-col gap-1 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
         children: [
-          jsxs('div', {
-            className: 'flex items-center gap-2.5',
-            children: [
-              jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: t('paper.title') }),
-              jsx(SegmentedControl, {
-                options: [
-                  { id: 'off', label: t('intro.off') },
-                  { id: 'on', label: t('intro.on') }
-                ],
-                value: paper ? 'on' : 'off',
-                onChange: (id) => togglePaper(id === 'on'),
-                style: { width: '150px', flexShrink: 0 },
-                'aria-label': t('paper.title')
+          hasOfficialRows
+            ? jsx(OfficialToggleRow, {
+                label: t('paper.title'),
+                checked: Boolean(paper),
+                onChange: (on) => togglePaper(on),
+                wide: true
               })
-            ]
-          }),
+            : jsxs('div', {
+                className: 'flex items-center gap-2.5',
+                children: [
+                  jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: t('paper.title') }),
+                  jsx(SegmentedControl, {
+                    options: [
+                      { id: 'off', label: t('intro.off') },
+                      { id: 'on', label: t('intro.on') }
+                    ],
+                    value: paper ? 'on' : 'off',
+                    onChange: (id) => togglePaper(id === 'on'),
+                    style: { width: '150px', flexShrink: 0 },
+                    'aria-label': t('paper.title')
+                  })
+                ]
+              }),
 
           // 配方（明亮在上，暗色在下；从左到右由轻到重，默认极轻；纸纹关闭时禁用选择）
           // 官方 SegmentedControl 的 disabled 不屏蔽 hover 高亮（Chromium :hover
@@ -1832,19 +1874,26 @@ function AppearancePanel() {
         children: [
           jsxs('div', {
             className: 'flex items-center gap-2.5',
-            children: [
-              jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: t('intro.title') }),
-              jsx(SegmentedControl, {
-                options: [
-                  { id: 'off', label: t('intro.off') },
-                  { id: 'on', label: t('intro.on') }
-                ],
-                value: introOn ? 'on' : 'off',
-                onChange: (id2) => toggleIntro(id2 === 'on'),
-                className: 'ml-auto',
-                style: { width: '150px', flexShrink: 0 }
-              })
-            ]
+            children: hasOfficialRows
+              ? jsx(OfficialToggleRow, {
+                  label: t('intro.title'),
+                  checked: Boolean(introOn),
+                  onChange: (on) => toggleIntro(on),
+                  wide: true
+                })
+              : [
+                  jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: t('intro.title') }),
+                  jsx(SegmentedControl, {
+                    options: [
+                      { id: 'off', label: t('intro.off') },
+                      { id: 'on', label: t('intro.on') }
+                    ],
+                    value: introOn ? 'on' : 'off',
+                    onChange: (id2) => toggleIntro(id2 === 'on'),
+                    className: 'ml-auto',
+                    style: { width: '150px', flexShrink: 0 }
+                  })
+                ]
           }),
           // 展开区常驻：关 → 整块禁交互（同纸纹配方手法：外层掐指针感知灭 hover）；
           // 开+原生文案 → 仅输入区禁用；开+自定义 → 全部可用
@@ -1907,30 +1956,18 @@ function AppearancePanel() {
         stacked: stackedLayout,
         onEnter: gateHover(GK.toolView, 'behavior.toolViewDesc')
       }),
-      OfficialToggleRow
-        ? jsx('div', {
-            // 试装：折叠推理=官方 ToggleRow（Switch 语义与官方设置页同款）；
-            // hover→底部说明带仍由外层容器驱动（零件不接 mouseenter）
-            onMouseEnter: gateHover(GK.reasoning, 'behavior.reasoningDesc'),
-            children: jsx(OfficialToggleRow, {
-              label: t('behavior.reasoning'),
-              checked: reasoningCollapsed,
-              onChange: changeReasoning,
-              disabled: !settingHas(GK.reasoning)
-            })
-          })
-        : jsx(BehaviorRow, {
-          title: t('behavior.reasoning'),
-          options: [
-            { id: 'off', label: t('intro.off') },
-            { id: 'on', label: t('intro.on') }
-          ],
-          value: reasoningCollapsed ? 'on' : 'off',
-          onChange: (id) => changeReasoning(id === 'on'),
-          disabled: !settingHas(GK.reasoning),
-          stacked: stackedLayout,
-          onEnter: gateHover(GK.reasoning, 'behavior.reasoningDesc')
-        }),
+      jsx(BehaviorRow, {
+        title: t('behavior.reasoning'),
+        options: [
+          { id: 'off', label: t('intro.off') },
+          { id: 'on', label: t('intro.on') }
+        ],
+        value: reasoningCollapsed ? 'on' : 'off',
+        onChange: (id) => changeReasoning(id === 'on'),
+        disabled: !settingHas(GK.reasoning),
+        stacked: stackedLayout,
+        onEnter: gateHover(GK.reasoning, 'behavior.reasoningDesc')
+      }),
       jsx(BehaviorRow, {
         title: t('behavior.embeds'),
         options: [
@@ -1944,29 +1981,18 @@ function AppearancePanel() {
         stacked: stackedLayout,
         onEnter: gateHover(GK.embedMode, 'behavior.embedsDesc')
       }),
-      OfficialToggleRow
-        ? jsx('div', {
-            // 试装：悬浮输入框=官方 ToggleRow（同上）
-            onMouseEnter: gateHover(GK.popout, 'behavior.popoutDesc'),
-            children: jsx(OfficialToggleRow, {
-              label: t('behavior.popout'),
-              checked: popoutEnabled,
-              onChange: changePopout,
-              disabled: !settingHas(GK.popout)
-            })
-          })
-        : jsx(BehaviorRow, {
-          title: t('behavior.popout'),
-          options: [
-            { id: 'off', label: t('intro.off') },
-            { id: 'on', label: t('intro.on') }
-          ],
-          value: popoutEnabled ? 'on' : 'off',
-          onChange: (id) => changePopout(id === 'on'),
-          disabled: !settingHas(GK.popout),
-          stacked: stackedLayout,
-          onEnter: gateHover(GK.popout, 'behavior.popoutDesc')
-        }),
+      jsx(BehaviorRow, {
+        title: t('behavior.popout'),
+        options: [
+          { id: 'off', label: t('intro.off') },
+          { id: 'on', label: t('intro.on') }
+        ],
+        value: popoutEnabled ? 'on' : 'off',
+        onChange: (id) => changePopout(id === 'on'),
+        disabled: !settingHas(GK.popout),
+        stacked: stackedLayout,
+        onEnter: gateHover(GK.popout, 'behavior.popoutDesc')
+      }),
       jsx(BehaviorRow, {
         title: t('behavior.appActions'),
         options: [
