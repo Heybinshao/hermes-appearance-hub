@@ -14,6 +14,10 @@
  *       不自定义 Popover —— 与核心状态栏工具同一条渲染路径，最稳。
  */
 import { haptic, host, icons, SegmentedControl, Input, Textarea, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, usePluginI18n, useI18n, useTheme, THEMES_AREA } from '@hermes/plugin-sdk'
+// v4.2 试装（官方设置零件）：必须星号导入做运行时探测——旧构建的 SDK 命名空间
+// 没有 ToggleRow/ListRow 这些导出，静态 named import 缺失 = ESM 链接错误 =
+// 整个插件白屏。命名空间对象恒在，属性按存在与否探测，缺席回退自绘行。
+import * as pluginSdk from '@hermes/plugin-sdk'
 import { useState, useEffect, useRef } from 'react'
 import { jsx, jsxs } from 'react/jsx-runtime'
 
@@ -351,6 +355,11 @@ function settingsGateway() {
   const s = host && host.settings
   return s && typeof s.get === 'function' && typeof s.set === 'function' ? s : null
 }
+
+// ── v4.2 试装：官方设置零件探测（ToggleRow/ListRow）──
+// 仅这两行试点走官方件；其余行保持自绘 BehaviorRow。旧构建（无此导出）
+// 探测为 null → 渲染处回退 BehaviorRow，功能与观感与 v4.1 完全一致。
+const OfficialToggleRow = typeof pluginSdk.ToggleRow === 'function' ? pluginSdk.ToggleRow : null
 
 function settingGet(key, fallback) {
   const sg = settingsGateway()
@@ -1898,18 +1907,30 @@ function AppearancePanel() {
         stacked: stackedLayout,
         onEnter: gateHover(GK.toolView, 'behavior.toolViewDesc')
       }),
-      jsx(BehaviorRow, {
-        title: t('behavior.reasoning'),
-        options: [
-          { id: 'off', label: t('intro.off') },
-          { id: 'on', label: t('intro.on') }
-        ],
-        value: reasoningCollapsed ? 'on' : 'off',
-        onChange: (id) => changeReasoning(id === 'on'),
-        disabled: !settingHas(GK.reasoning),
-        stacked: stackedLayout,
-        onEnter: gateHover(GK.reasoning, 'behavior.reasoningDesc')
-      }),
+      OfficialToggleRow
+        ? jsx('div', {
+            // 试装：折叠推理=官方 ToggleRow（Switch 语义与官方设置页同款）；
+            // hover→底部说明带仍由外层容器驱动（零件不接 mouseenter）
+            onMouseEnter: gateHover(GK.reasoning, 'behavior.reasoningDesc'),
+            children: jsx(OfficialToggleRow, {
+              label: t('behavior.reasoning'),
+              checked: reasoningCollapsed,
+              onChange: changeReasoning,
+              disabled: !settingHas(GK.reasoning)
+            })
+          })
+        : jsx(BehaviorRow, {
+          title: t('behavior.reasoning'),
+          options: [
+            { id: 'off', label: t('intro.off') },
+            { id: 'on', label: t('intro.on') }
+          ],
+          value: reasoningCollapsed ? 'on' : 'off',
+          onChange: (id) => changeReasoning(id === 'on'),
+          disabled: !settingHas(GK.reasoning),
+          stacked: stackedLayout,
+          onEnter: gateHover(GK.reasoning, 'behavior.reasoningDesc')
+        }),
       jsx(BehaviorRow, {
         title: t('behavior.embeds'),
         options: [
@@ -1923,18 +1944,29 @@ function AppearancePanel() {
         stacked: stackedLayout,
         onEnter: gateHover(GK.embedMode, 'behavior.embedsDesc')
       }),
-      jsx(BehaviorRow, {
-        title: t('behavior.popout'),
-        options: [
-          { id: 'off', label: t('intro.off') },
-          { id: 'on', label: t('intro.on') }
-        ],
-        value: popoutEnabled ? 'on' : 'off',
-        onChange: (id) => changePopout(id === 'on'),
-        disabled: !settingHas(GK.popout),
-        stacked: stackedLayout,
-        onEnter: gateHover(GK.popout, 'behavior.popoutDesc')
-      }),
+      OfficialToggleRow
+        ? jsx('div', {
+            // 试装：悬浮输入框=官方 ToggleRow（同上）
+            onMouseEnter: gateHover(GK.popout, 'behavior.popoutDesc'),
+            children: jsx(OfficialToggleRow, {
+              label: t('behavior.popout'),
+              checked: popoutEnabled,
+              onChange: changePopout,
+              disabled: !settingHas(GK.popout)
+            })
+          })
+        : jsx(BehaviorRow, {
+          title: t('behavior.popout'),
+          options: [
+            { id: 'off', label: t('intro.off') },
+            { id: 'on', label: t('intro.on') }
+          ],
+          value: popoutEnabled ? 'on' : 'off',
+          onChange: (id) => changePopout(id === 'on'),
+          disabled: !settingHas(GK.popout),
+          stacked: stackedLayout,
+          onEnter: gateHover(GK.popout, 'behavior.popoutDesc')
+        }),
       jsx(BehaviorRow, {
         title: t('behavior.appActions'),
         options: [

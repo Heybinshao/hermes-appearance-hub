@@ -83,6 +83,23 @@ export const SegmentedControl = ({ options = [], value, onChange, disabled, ...r
     ...rest
   })
 
+// v4.2 试装桩：官方设置零件（props 对齐 src/app/settings/primitives.tsx——
+// ToggleRow={label,checked,onChange,disabled,...}；驱动 hub 的官方件分支）。
+export const ToggleRow = ({ label, checked, onChange, disabled, description, hint, below, wide }) =>
+  jsx('div', {
+    'data-comp': 'toggle-row',
+    'data-label': String(label ?? ''),
+    'data-checked': checked ? '1' : '0',
+    'data-disabled': disabled ? '1' : '0',
+    __toggle: (on) => onChange?.(on)
+  })
+export const ListRow = ({ title, description, action, wide }) =>
+  jsx('div', {
+    'data-comp': 'list-row',
+    'data-title': String(title ?? ''),
+    children: action
+  })
+
 // ── 状态桩 ──
 let themeOverride = { mode: 'system', themeName: 'nous', availableThemes: [{ name: 'nous', label: 'Nous' }, { name: 'binshao', label: 'Binshao' }] }
 export function __setThemeState(o) { themeOverride = { ...themeOverride, ...o } }
