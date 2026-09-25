@@ -345,7 +345,9 @@ const BehaviorRow = ({ title, options, value, onChange, stacked, onEnter, disabl
           value,
           onChange,
           disabled,
-          style: { flexShrink: 0 }
+          // v4.1 对齐约束保留：面板控件列统一 150px 定宽（左右缘两条线全齐），
+          // 官方 wide 行内容定宽会随选项数跳左缘
+          style: { width: '150px', flexShrink: 0 }
         })
       })
     })
@@ -1627,11 +1629,16 @@ function AppearancePanel() {
         className: 'flex flex-col gap-1 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
         children: [
           hasOfficialRows
-            ? jsx(OfficialToggleRow, {
-                label: t('paper.title'),
-                checked: Boolean(paper),
-                onChange: (on) => togglePaper(on),
-                wide: true
+            ? jsx('div', {
+                // flex items-center 容器里 flex item 按内容收缩 → 行内标题被压窄
+                // 竖排、开关卡中间。铺满宽度恢复 block 语义（纸纹/开场标识两处同修）
+                style: { width: '100%' },
+                children: jsx(OfficialToggleRow, {
+                  label: t('paper.title'),
+                  checked: Boolean(paper),
+                  onChange: (on) => togglePaper(on),
+                  wide: true
+                })
               })
             : jsxs('div', {
                 className: 'flex items-center gap-2.5',
@@ -1875,11 +1882,15 @@ function AppearancePanel() {
           jsxs('div', {
             className: 'flex items-center gap-2.5',
             children: hasOfficialRows
-              ? jsx(OfficialToggleRow, {
-                  label: t('intro.title'),
-                  checked: Boolean(introOn),
-                  onChange: (on) => toggleIntro(on),
-                  wide: true
+              ? jsx('div', {
+                  // 同纸纹行：flex 容器内铺满，防标题压缩竖排
+                  style: { width: '100%' },
+                  children: jsx(OfficialToggleRow, {
+                    label: t('intro.title'),
+                    checked: Boolean(introOn),
+                    onChange: (on) => toggleIntro(on),
+                    wide: true
+                  })
                 })
               : [
                   jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: t('intro.title') }),
