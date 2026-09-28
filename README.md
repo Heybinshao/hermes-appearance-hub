@@ -124,6 +124,28 @@ hermes plugins update hermes-appearance-hub
 > （`window.hermesDesktop.zoom`），与系统「设置 → 外观 → 界面缩放」、顶部 View 菜单、Cmd/Ctrl ±
 > 共用同一套主进程缩放机制，最终值互相一致（都持久化到同一处）。
 
+## 从源码开发
+
+```bash
+git clone https://github.com/Heybinshao/hermes-appearance-hub.git
+cd hermes-appearance-hub
+node scripts/build-live.mjs
+```
+
+`scripts/build-live.mjs` 把仓库里的 `desktop/plugin.js` 同步到本地运行现场
+（`~/.hermes/desktop-plugins/hermes-appearance-hub/`），并把现场独有的
+LIVE-ONLY 段插回去。
+
+**为什么需要这个脚本**：运行现场带着仓库里没有的段落（当前是 composer
+输入框字体覆盖，绕官方 `:lang(zh)` 语言分支把 `--dt-font-sans` 挤到
+fallback 末尾的 bug）。直接 `cp` 仓库文件会把那段抹掉，导致输入框字体失效；
+而原地手改现场会让仓库与现场双向分叉。所以固定走：读仓库版 → 脚本化插入
+LIVE-ONLY 段 → 写现场，三步各带 assert——锚点对不上就中止、不写半个文件，
+写盘后必过 `node --check`（现场语法坏掉不是局部降级，是整插件加载失败、
+状态栏入口直接消失）。
+
+改完刷新：磁盘插件 5 秒热加载，重开浮窗即可（改桌面端自身才需要 ⌘Q）。
+
 ## 卸载
 
 目录装的：
