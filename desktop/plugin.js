@@ -547,11 +547,31 @@ const introOriginalTexts = new Map()   // 叶子元素 → 原始文本（切回
 let introModeSubscribers = new Set()   // 面板订阅者（v3.3.0 起仅 register 初始化时推送一次对齐）
 
 function writeIntroNative(value) {
+  // 记账必须【先于】写：atom.set 会同步触发订阅回调，回调里靠这个值区分
+  // 「自己写的」与「官方页改的」。顺序反了会把自己的写误判成外部改动，
+  // 导致注入层被多余地重置一次（v3.2 当年踩过这个次序，v3.4.0 别改回去）。
+  introNativeLastWritten = value
+  // atom 已认领：走官方 $introSplash 写入 = 落盘 + 官方设置页开关实时跟平，
+  // 不再需要下面的程序化 click 去对齐（那是 atom 缺席时的兜底）。
+  if (writeOfficial(INTRO_NATIVE_KEY, value === 'true')) return
   try {
     localStorage.setItem(INTRO_NATIVE_KEY, value)
   } catch {
     // storage 不可用时静默跳过，注入层不受影响
   }
+}
+
+// 反向同步：官方设置页切开关 → 注入层跟平。订阅官方 atom（v3.4.0 新增；
+// v3.3.0 删掉了 Storage.prototype.setItem 钩子，反向要重启才对账）。
+// 记账防自激：本插件自己写 atom 也会触发回调，靠 lastWritten 区分。
+let introNativeLastWritten = null
+function watchIntroNative(onChange) {
+  return OFFICIAL_CHANNEL.subscribe(INTRO_NATIVE_KEY, (on) => {
+    const value = on ? 'true' : 'false'
+    if (value === introNativeLastWritten) return   // 自己刚写的，账已同步
+    introNativeLastWritten = value
+    onChange(value)
+  })
 }
 
 // ── 与原生设置页双向同步 ──────────────────────────────────────────
@@ -587,8 +607,8 @@ function unsubscribeIntroMode(cb) {
   introModeSubscribers.delete(cb)
 }
 
-// 面板实例订阅（弹窗开时加入）：v3.3.0 合规改造后无实时推送源，保留接口
-// （register 初始化时可推送一次对齐；官方设置页的改动降级为重启后跟平）
+// 面板实例订阅（弹窗开时加入）：v3.4.0 起推送源是官方 $introSplash atom 订阅，
+// 官方设置页切开关 → 这里实时推给面板（v3.3.0 那阵无推送源，降级为重启后跟平）。
 function subscribeIntroMode(cb) {
   introModeSubscribers.add(cb)
   return unsubscribeIntroMode
@@ -2256,7 +2276,6 @@ export default {
       applyUserBubble(clampBubble(readOfficial(USER_BUBBLE_KEY, (() => { try { return localStorage.getItem(USER_BUBBLE_KEY) || 0 } catch { return 0 } })())))
       injectBinshaoTheme()
       // 开场标识：先与原生键对账，再按最终状态恢复注入
-      // （v3.3.0：setItem 实时推送钩子已移除——官方设置页的改动重启后跟平）
       try {
         // 'off' 不作为持久档位（开/关由原生键承载）：历史遗留的 off 存档还原为
         // native，native/custom 存档必须保留——否则 hub 关闭后重启，「开」无从恢复原档位
@@ -2264,14 +2283,30 @@ export default {
           ctx.storage.set(INTRO_MODE_KEY, 'native')
         }
       } catch {}
+      const introInitialOn = readOfficial(INTRO_NATIVE_KEY, (() => { try { return localStorage.getItem(INTRO_NATIVE_KEY) !== 'false' } catch { return true } })())
+      introNativeLastWritten = introInitialOn ? 'true' : 'false'
       applyIntroMode(
         (() => {
-          try {
-            if (localStorage.getItem(INTRO_NATIVE_KEY) === 'false') return 'off'
-          } catch {}
+          if (!introInitialOn) return 'off'
           return ctx.storage.get(INTRO_MODE_KEY, 'native') === 'custom' ? 'custom' : 'native'
         })()
       )
+      // 反向同步常驻：官方设置页切「开场标识」开关 → 注入层实时跟平
+      // （v3.3.0 删掉 setItem 钩子后这条要重启才对账，v3.4.0 改订阅官方 atom）。
+      // 语义：false = 暂时隐藏注入层；true = 按 hub 当前档位恢复。
+      const unwatchIntro = watchIntroNative((value) => {
+        if (value === 'false') {
+          stopIntroObserver()
+          introRestore()
+          const style = document.getElementById(INTRO_STYLE_ID)
+          if (style) style.remove()
+        } else {
+          applyIntroMode(ctxRef ? String(ctxRef.storage.get(INTRO_MODE_KEY, 'native')) : 'native')
+        }
+        // 推给面板：官方页切关 → 面板跟平到「关」；切开 → 跟平到存档档位
+        const current = ctxRef ? String(ctxRef.storage.get(INTRO_MODE_KEY, 'native')) : 'native'
+        introModeSubscribers.forEach((cb) => cb(value === 'false' ? 'off' : current))
+      })
       // 界面缩放走原生机制（window.hermesDesktop.zoom）。
       // 挂模块级常驻监听：与弹窗开关无关，保证 Settings / View 菜单 / Cmd± 改缩放时
       // 反向同步（哪怕 hub 弹窗此刻没开，下次打开也已是最新值）。
@@ -2279,6 +2314,7 @@ export default {
 
       // 卸载/重载时清理注入，不留残留
       ctx.onDispose(() => {
+        if (typeof unwatchIntro === 'function') unwatchIntro()
         langObserver.disconnect()
         removePaper()
         removeFont()
