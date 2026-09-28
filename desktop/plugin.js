@@ -248,14 +248,33 @@ const EMBED_MODE_KEY = 'hermes.desktop.embed-mode'
 const POPOUT_KEY = 'hermes.desktop.composerPopout.gesturesEnabled'
 const APP_ACTIONS_KEY = 'hermes.desktop.titlebarAppActions'
 
+// 官方键的读：atom 认领后走 atom（权威值，且与其他面板实例天然一致），
+// 未认领（反解失败/桌面端结构变了）则回落 localStorage —— 两者读出的值相同，
+// 差别只在「有没有订阅能力」，所以回落是安全的。
+function readOfficial(key, fallback) {
+  const v = OFFICIAL_CHANNEL.read(key, undefined)
+  if (v !== undefined) return v
+  return fallback
+}
+
+// 官方键的写：优先 atom/官方 setter（实时 + 落盘都归官方）。
+// 返回 false = 没认领到，调用方必须自己落 localStorage，否则用户改动会丢。
+function writeOfficial(key, value) {
+  return OFFICIAL_CHANNEL.write(key, value)
+}
+
 function readBoolKey(key, fallback) {
+  const v = OFFICIAL_CHANNEL.read(key, undefined)
+  if (typeof v === 'boolean') return v
   try {
-    const v = localStorage.getItem(key)
-    return v === 'true' ? true : v === 'false' ? false : fallback
+    const raw = localStorage.getItem(key)
+    return raw === 'true' ? true : raw === 'false' ? false : fallback
   } catch { return fallback }
 }
 
 function writeBoolKey(key, on) {
+  // atom 已认领：写它即落盘并叫醒所有订阅者，不要再直写（重复写会双触发）
+  if (writeOfficial(key, on)) return
   try {
     localStorage.setItem(key, String(on))
     window.dispatchEvent(new StorageEvent('storage', { key }))
@@ -269,6 +288,9 @@ function clampBubble(value) {
 
 function applyUserBubble(value) {
   const v = clampBubble(value)
+  // atom 已认领：官方 $userBubble 的 subscribe 自己会打 CSS 变量 + 落盘
+  // （含 v=0 时 removeProperty + 删键），写它即可，不要再叠一遍直写。
+  if (writeOfficial(USER_BUBBLE_KEY, v)) return
   try {
     if (v === 0) {
       document.documentElement.style.removeProperty('--user-bubble-keep')
@@ -776,32 +798,349 @@ function resolvedDark() {
 }
 
 // ── 移植项读写 ────────────────────────────────────────────────────
+// 枚举类官方键：atom 认领后读 atom（权威值），未认领回落 localStorage。
 function readSimpleKey(key, fallback, valid) {
+  const v = OFFICIAL_CHANNEL.read(key, undefined)
+  if (typeof v === 'string' && valid.includes(v)) return v
   try {
-    const v = localStorage.getItem(key)
-    return v && valid.includes(v) ? v : fallback
+    const raw = localStorage.getItem(key)
+    return raw && valid.includes(raw) ? raw : fallback
   } catch { return fallback }
 }
 
 function writeSimpleKey(key, value) {
+  // atom 认领后写它即落盘 + 实时；未认领才直写（= 重启生效）
+  if (writeOfficial(key, value)) return
   try {
     localStorage.setItem(key, value)
     window.dispatchEvent(new StorageEvent('storage', { key }))
   } catch {}
 }
 
-// ── v3.3.0 合规改造：官方 atom 实时通道整段移除 ─────────────────────
-// 原版在这里动态 import 官方 bundle chunk、翻转探测认领 nanostores atom 做实时
-// 生效，违反插件目录准入规则 8（desktop surface lint：禁原型补丁/禁动态 import SDK
-// 之外模块）。以下所有官方设置项统一降级为 localStorage 直写 + 补发 storage 事件：
-// 订阅型键重启生效，tabStrip 下次 pane 树重渲染生效。官方若在 SDK 提供设置项
-// 读写/订阅网关（catalog PR #114155 讨论中），此注释处即回迁点。
+// ── 官方 atom 实时通道（静态指纹反解 · 名字无关 · 零翻转）────────────
+//
+// v3.3.0 为过官方目录规则 8 把这段删了，9 个设置项退化成「重启才生效」。
+// 现在恢复实时能力，并且不重踩 v3.2 那版的两个坑：
+//   ① v3.2 按 chunk 名正则（session-list-density-*.js）找模块。官方一次重打包
+//      把 store 并进别的 chunk，正则就永匹配不到 → 整块静默跳过、零报错。
+//      （实证：当前构建里已无此 chunk 名，v3.2 的第一道正则当场扑空。）
+//      这里改从主 bundle 的 __vite__mapDeps 拿完整 chunk 依赖表（名字无关），
+//      逐个定位「源码里含该键字面量」的 chunk。
+//   ② v3.2 用 boolean 值域翻转探测认领 atom。当前构建里一次能命中 7~17 个
+//      boolean 候选，指纹多义必错。这里改纯静态：从键字面量（chunk 内唯一）
+//      沿变量消费链反解出持有该键的 atom 及其 export 别名，运行期只做
+//      「候选里哪个真有 get/set」的最小探测，不做值域猜测。
+//
+// 已知变量形态（minify 后）与各自解法：
+//   KEY=`k`, VAR=se(KEY,`fb`,{...})      persistentAtom        直接可写
+//   KEY=`k`, VAR=t(le(KEY,!1))           atom(storedBoolean)   直接可写
+//   VAR=se(`k`,`fb`,{...})                键内联首参            直接可写
+//   KEY=`k`, BASE=ut(`n`,VAR,e=>VAR.set)  modeBound 包装        BASE 可写
+//   KEY=`k`, VAR=t(cond(KEY)?a:b),ATOM=t(派生)  派生 computed   内存态，落盘在官方 setter
+//   KEY=`k`, function S(v){A.set(v),persist(KEY,v)}            S 是唯一可写通道
+//
+// 反解失败一律不猜：读写回落到 localStorage 直写（= v3.3.0 的重启生效行为），
+// 面板照常可用、只是该行不实时。绝不为了「看起来实时」而写错 atom。
+
+const OFFICIAL_CHANNEL = (() => {
+  const ID = '[A-Za-z_$][\\w$]*'
+  const reEsc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+  // 要认领的官方持久化键。主题明暗模式/皮肤不在此列：官方 themes/context.tsx
+  // 自己注册了 storage 监听，直写 + 补发 storage 事件本来就是实时的。
+  const CLAIM_KEYS = [
+    DENSITY_KEY, TABSTRIP_KEY, TOOL_VIEW_KEY, EMBED_MODE_KEY, APP_ACTIONS_KEY,
+    USER_BUBBLE_KEY, BACKDROP_KEY, INTRO_NATIVE_KEY, REASONING_KEY, POPOUT_KEY
+  ]
+
+  let officialStores = null      // key -> {atom} | {setter}
+  let loadPromise = null
+
+  // 花括号配平取函数真实体。不能用固定字符窗口：窗口会溢出到后面的代码里，
+  // 让不相干的函数体「看起来」含了键名 → 认领到隔壁函数（已实证）。
+  function functionBody(src, braceIdx) {
+    let depth = 0
+    for (let i = braceIdx; i < src.length; i++) {
+      if (src[i] === '{') depth++
+      else if (src[i] === '}') { depth--; if (depth === 0) return src.slice(braceIdx + 1, i) }
+    }
+    return ''
+  }
+
+  function matchParen(src, openIdx) {
+    let depth = 0
+    for (let i = openIdx; i < src.length; i++) {
+      const c = src[i]
+      if (c === '(' || c === '[' || c === '{') depth++
+      else if (c === ')' || c === ']' || c === '}') { depth--; if (depth === 0) return i }
+    }
+    return -1
+  }
+
+  // 实参区间内对某标识符的引用。排除 obj.prop 形式（`$` 与 `.` 都不算边界），
+  // 否则 `Xn.poppedOut` 会被误判成引用了 `Xn` 的键。
+  function argRefs(src, needle, s, e) {
+    const hits = []
+    const re = new RegExp('(^|[^\\w$.])' + reEsc(needle) + '(?![\\w$])', 'g')
+    const seg = src.slice(s, e)
+    let m
+    while ((m = re.exec(seg))) { hits.push(s + m.index); if (hits.length > 8) break }
+    return hits
+  }
+
+  const DECL_SRC = '(?:^|[;,{(]|\\s)\\s*(' + ID + ')\\s*=\\s*(' + ID + ')\\s*\\('
+  const VARDEF_SRC = 'function\\s+(' + ID + ')\\s*\\(([^)]*)\\)\\s*\\{'
+
+  // 变量声明 VAR=CALL(...) —— 用 sticky 正则走 lastIndex，绝不 src.slice(from)：
+  // chunk 几十万字符，在扫描循环里 slice 会变成 GB 级拷贝把进程拖死（已踩过）。
+  function readVarDecl(src, from, re) {
+    re.lastIndex = from
+    const m = re.exec(src)
+    if (!m) return null
+    const openIdx = m.index + m[0].length - 1
+    const closeIdx = matchParen(src, openIdx)
+    if (closeIdx < 0) return null
+    return { varName: m[1], argsStart: openIdx + 1, argsEnd: closeIdx }
+  }
+
+  function exportMap(src) {
+    const m = /export\s*\{/.exec(src)
+    if (!m) return {}
+    const j = src.indexOf('{', m.index)
+    const k = src.indexOf('}', j)
+    if (k < 0) return {}
+    const nm = {}
+    for (const pair of src.slice(j + 1, k).split(',')) {
+      const pr = pair.trim().split(/\s+/)
+      if (pr.length === 1) nm[pr[0]] = pr[0]
+      else if (pr.length === 3 && pr[1] === 'as') nm[pr[0]] = pr[2]
+    }
+    return nm
+  }
+
+  // 从键字面量位置反解候选 export 名。
+  // persists = 候选自身是否直接持有该键的持久化通道（写它即落盘）：
+  //   直接（persistentAtom / atom(storedBoolean) / modeBound 包装）→ true
+  //   派生（VAR=atom(派生变量)）→ false，落盘在官方 setter 里
+  //   setter-fn（函数体同含 .set( 与 persist(KEY)）→ true
+  function resolveFrom(src, at, key) {
+    const nm = exportMap(src)
+    const emitted = []
+    const seen = new Set()
+    const push = (varName, why, persists) => {
+      const ex = nm[varName]
+      if (!ex || seen.has(ex)) return
+      seen.add(ex)
+      emitted.push({ exportName: ex, via: why, persists: persists !== false })
+    }
+    const DECL_RE = new RegExp(DECL_SRC, 'g')
+    const VARDEF_RE = new RegExp(VARDEF_SRC, 'g')
+
+    // 情况 1：键先被赋给具名变量 KEYVAR（`var On=`k``）
+    const before = src.slice(Math.max(0, at - 90), at)
+    const keyvarM = new RegExp('(' + ID + ')\\s*=\\s*`\\s*$').exec(before)
+    const keyvar0 = keyvarM ? keyvarM[1] : null
+
+    if (keyvar0) {
+      const winEnd = Math.min(src.length, at + 6000)
+      let keyvar = keyvar0
+      const visited = new Set()
+      for (let hop = 0; hop < 3 && !visited.has(keyvar); hop++) {
+        visited.add(keyvar)
+        // 收集窗口内所有「实参引用了 keyvar」的声明。不能只取第一个：popout 键
+        // 的源码里 `Xn=t({…poppedOut:Yn&&…})` 排在真正的 atom `Zn=t(Yn)` 之前，
+        // 只取首个会认领到错的那个（已实证）。
+        const consumers = []
+        DECL_RE.lastIndex = at
+        let dm
+        while ((dm = DECL_RE.exec(src))) {
+          if (dm.index > winEnd) break
+          const d = readVarDecl(src, dm.index, DECL_RE)
+          if (!d || d.argsEnd > winEnd) continue
+          if (argRefs(src, keyvar, d.argsStart, d.argsEnd).length) consumers.push(d)
+          if (consumers.length >= 8) break
+        }
+        if (!consumers.length) break
+
+        const nexts = []
+        for (const c of consumers) {
+          // 实参直接引用【原始键变量】= 持有持久化通道；只引用派生变量 = 内存态
+          const direct = argRefs(src, keyvar0, c.argsStart, c.argsEnd).length > 0
+          push(c.varName, direct ? 'keyvar' : 'derived', direct)
+          const after = src.slice(c.argsEnd, Math.min(src.length, c.argsEnd + 4000))
+          // modeBound 包装 BASE=ut(`name`,VAR,e=>VAR.set(e))：BASE 才是可写的
+          const wrapped = new RegExp('(?:^|[;,{(]|\\s)\\s*(' + ID + ')\\s*=\\s*' + ID + '\\s*\\((?=[^)]*' + reEsc(c.varName) + '\\s*\\.set\\()').exec(after)
+          if (wrapped) push(wrapped[1], 'modeBound', true)
+          // 只读 computed：args 内无 .set( 时找持有 VAR.set 的包装层
+          if (!src.slice(c.argsStart, c.argsEnd).includes('.set(')) {
+            const setter = new RegExp('(' + ID + ')\\s*=\\s*' + ID + '\\s*\\([^)]*' + reEsc(c.varName) + '\\s*\\.set\\(').exec(after)
+            if (setter) push(setter[1], 'setter-wrapper', true)
+          }
+          nexts.push(c.varName)
+        }
+
+        // 官方 setter：function S(v){ATOM.set(v),persist(KEY,v),…}
+        // 硬条件=函数体【自身】同时含 .set( 与原始键变量。条件写松会认领到隔壁
+        // 的同类 setter（popout 的 $n 管的是 poppedOut，不是 gestures；已实证认错）。
+        let fm
+        VARDEF_RE.lastIndex = at
+        while ((fm = VARDEF_RE.exec(src))) {
+          if (fm.index > winEnd) break
+          const body = functionBody(src, fm.index + fm[0].length - 1)
+          if (!body) break
+          if (!body.includes('.set(')) continue
+          if (!new RegExp('(^|[^\\w$.])' + reEsc(keyvar0) + '(?![\\w$])').test(body)) continue
+          push(fm[1], 'setter-fn', true)
+          break
+        }
+
+        // 下一跳跟进任一未访问过的消费者。不能只跟非首个：popout 键的首个消费者
+        // Yn=le(Ln,…) 是派生读取，真正的 atom Zn=t(Yn) 在它下游（已实证断链）。
+        keyvar = nexts.find((v) => !visited.has(v)) || null
+        if (!keyvar) break
+      }
+    }
+
+    // 情况 2：键内联在调用首参 / 嵌在实参里
+    if (!emitted.length) {
+      const winStart = Math.max(0, at - 120)
+      const win = src.slice(winStart, at + 4000)
+      const direct = new RegExp('(?:^|[;,{(]|\\s)\\s*(' + ID + ')\\s*=\\s*' + ID + '\\s*\\(\\s*`' + reEsc(key) + '`').exec(win)
+      if (direct) push(direct[1], 'literal-arg', true)
+      else {
+        const re2 = new RegExp(DECL_SRC, 'g')
+        let nd, nested = null
+        while ((nd = re2.exec(win))) {
+          const d = readVarDecl(win, nd.index, re2)
+          if (d && win.slice(d.argsStart, d.argsEnd).includes(key)) { nested = d; break }
+        }
+        if (nested) push(nested.varName, 'literal-nested', true)
+      }
+    }
+    return emitted
+  }
+
+  // chunk 清单 = 主 bundle 的 __vite__mapDeps（完整依赖表，名字无关）
+  async function assetsBase() {
+    try {
+      const scriptEl = document.querySelector('script[src*="index-"]')
+      if (!scriptEl) return null
+      const mainUrl = new URL(scriptEl.src, location.href)
+      const mainSrc = await (await fetch(mainUrl.href)).text()
+      const i = mainSrc.indexOf('__vite__mapDeps')
+      if (i < 0) return null
+      const j = mainSrc.indexOf('[', i)
+      let depth = 0, end = -1
+      for (let k = j; k < mainSrc.length; k++) {
+        if (mainSrc[k] === '[') depth++
+        else if (mainSrc[k] === ']') { depth--; if (depth === 0) { end = k + 1; break } }
+      }
+      if (end < 0) return null
+      return { list: JSON.parse(mainSrc.slice(j, end)).map((s) => s.replace(/^\.\//, '')), base: new URL('./', mainUrl).href }
+    } catch { return null }
+  }
+
+  async function load() {
+    officialStores = officialStores || {}
+    const env = await assetsBase()
+    if (!env) return officialStores
+    const srcCache = new Map()
+    const readChunk = async (name) => {
+      if (!srcCache.has(name)) {
+        try { srcCache.set(name, await (await fetch(env.base + name)).text()) }
+        catch { srcCache.set(name, null) }
+      }
+      return srcCache.get(name)
+    }
+
+    for (const key of CLAIM_KEYS) {
+      if (officialStores[key]) continue
+      let hit = null
+      for (const name of env.list) {
+        const s = await readChunk(name)
+        if (s && s.includes(key)) { hit = { name, src: s }; break }
+      }
+      if (!hit) { console.error('[appearance-hub] claim fail (no chunk): ' + key); continue }
+      // 键字面量在 chunk 内必须唯一，否则无从判断哪个是它的 atom
+      if ([...hit.src.matchAll(new RegExp(reEsc(key), 'g'))].length !== 1) {
+        console.error('[appearance-hub] claim fail (key not unique): ' + key); continue
+      }
+      const at = hit.src.indexOf(key)
+      const cands = resolveFrom(hit.src, at, key)
+      if (!cands.length) { console.error('[appearance-hub] claim fail (no consumer): ' + key); continue }
+      cands.sort((a, b) => (b.persists ? 1 : 0) - (a.persists ? 1 : 0))
+
+      let mod = null
+      try { mod = await import(/* @vite-ignore */ env.base + hit.name) } catch (e) {
+        console.error('[appearance-hub] claim fail (import): ' + key + ' ' + e.message); continue
+      }
+      // 择优顺序（顺序本身就是语义，别随手调）：
+      //   ① 持持久化通道的 atom  ← 写它即落盘 + 叫醒订阅
+      //   ② 官方 setter 函数        ← atom 未导出时的唯一落盘通道
+      //   ③ 任意可写 atom          ← 兜底：可能只改内存态
+      // ② 必须排在 ③ 之前：popout 的 gestures atom 未导出，候选里有个同 chunk
+      // 的浮窗状态 atom（derived）也能 get/set，先挑它就变成「界面动了但
+      // 重启丢」（已实证）。setter-fn 候选恒带 persists=true，不参与 ③。
+      const pick = (pred) => { for (const c of cands) { const v = mod[c.exportName]; if (pred(v, c)) return { c, v } } return null }
+      let got = pick((v, c) => c.persists && v && typeof v.get === 'function' && typeof v.set === 'function')
+        || pick((v, c) => c.via === 'setter-fn' && typeof v === 'function')
+        || pick((v) => v && typeof v.get === 'function' && typeof v.set === 'function')
+        || pick((v) => typeof v === 'function')
+      if (!got) { console.error('[appearance-hub] claim fail (no usable export): ' + key); continue }
+      // setter-fn 走函数通道，其余走 atom 通道
+      officialStores[key] = got.c.via === 'setter-fn' ? { setter: got.v } : { atom: got.v }
+      // 探针必须 error 级：renderer 只有 error 落盘，info/warn 事后 grep 不到
+      console.error('[appearance-hub] ✅ ' + key + ' ← ' + hit.name + ' via ' + got.c.via +
+        ' export=' + got.c.exportName)
+    }
+    return officialStores
+  }
+
+  function ensure() {
+    if (!loadPromise) loadPromise = load().catch((e) => {
+      console.error('[appearance-hub] atom load failed: ' + e.message)
+      return officialStores
+    })
+    return loadPromise
+  }
+
+  const api = {
+    ensure,
+    // 读：认领到 atom 就走 atom（权威值），否则回落调用方的 localStorage 读
+    read(key, fallback) {
+      const s = officialStores && officialStores[key]
+      if (s && s.atom) { try { const v = s.atom.get(); if (v !== undefined && v !== null) return v } catch {} }
+      return fallback
+    },
+    // 写：atom / 官方 setter 优先（落盘与界面刷新都归官方）；都没有则返回 false，
+    // 由调用方落回 localStorage 直写（= 重启生效，不实时但正确）
+    write(key, value) {
+      const s = officialStores && officialStores[key]
+      if (s && s.atom) { try { s.atom.set(value); return true } catch {} }
+      if (s && s.setter) { try { s.setter(value); return true } catch {} }
+      return false
+    },
+    // 订阅：面板高亮跟随官方设置页的改动。setter 路线无 atom 可订阅 → noop
+    subscribe(key, cb) {
+      const s = officialStores && officialStores[key]
+      if (s && s.atom && typeof s.atom.subscribe === 'function') {
+        try { return s.atom.subscribe(cb) } catch {}
+      }
+      return () => {}
+    },
+    has(key) { return !!(officialStores && officialStores[key]) }
+  }
+  return api
+})()
 
 function readBackdrop() {
+  const v = OFFICIAL_CHANNEL.read(BACKDROP_KEY, undefined)
+  if (typeof v === 'boolean') return v
   try { return localStorage.getItem(BACKDROP_KEY) === 'true' } catch { return false }
 }
 
 function writeBackdrop(on) {
+  if (writeOfficial(BACKDROP_KEY, on)) return
   try {
     localStorage.setItem(BACKDROP_KEY, String(on))
     window.dispatchEvent(new StorageEvent('storage', { key: BACKDROP_KEY }))
@@ -1081,7 +1420,7 @@ function AppearancePanel() {
   const [density, setDensityState] = useState(() =>
     readSimpleKey(DENSITY_KEY, 'compact', ['compact', 'comfortable', 'detailed']))
   const [bubble, setBubbleState] = useState(() => {
-    try { return clampBubble(localStorage.getItem(USER_BUBBLE_KEY) || 0) } catch { return 0 }
+    return clampBubble(readOfficial(USER_BUBBLE_KEY, (() => { try { return localStorage.getItem(USER_BUBBLE_KEY) || 0 } catch { return 0 } })()))
   })
   const changeBubble = (v) => {
     setBubbleState(v)
@@ -1895,6 +2234,13 @@ export default {
     try {
       ctxRef = ctx
 
+      // 官方 atom 实时通道：认领 density/tabStrip/toolView/embedMode/appActions/
+      // bubble/backdrop/introSplash/reasoning/popout 这 10 个键的官方 atom。
+      // 认领成功 = 面板改动即时生效且与官方设置页双向同步；失败（桌面端结构变了）
+      // = 各读写函数自动回落 localStorage 直写，行为退回 v3.3.0 的重启生效，
+      // 不会报错也不会写错 atom。探针是 console.error 级，可事后 grep 核对。
+      OFFICIAL_CHANNEL.ensure()
+
       // 插件级 i18n：注册 locale bundles，跟随 app 语言设置；卸载时随 disposer 摘除
       const disposeI18n = ctx.i18n.register(LOCALES)
       // 非响应式翻译器（register 时求值一次；语言切换后需重启更新状态栏文字）
@@ -1907,7 +2253,7 @@ export default {
       // 官方聊天字体编辑监听常驻：开关开着时官方 inline 变化 → applyFont 让位/恢复
       watchOfficialChatFont()
       // 消息气泡：兜插件重载场景，按官方键恢复 CSS 变量（官方 app 启动已自恢复，幂等）
-      applyUserBubble((() => { try { return localStorage.getItem(USER_BUBBLE_KEY) || 0 } catch { return 0 } })())
+      applyUserBubble(clampBubble(readOfficial(USER_BUBBLE_KEY, (() => { try { return localStorage.getItem(USER_BUBBLE_KEY) || 0 } catch { return 0 } })())))
       injectBinshaoTheme()
       // 开场标识：先与原生键对账，再按最终状态恢复注入
       // （v3.3.0：setItem 实时推送钩子已移除——官方设置页的改动重启后跟平）
