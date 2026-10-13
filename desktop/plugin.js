@@ -2212,12 +2212,12 @@ function AppearancePanel() {
         onEnter: () => hover('behavior.appActionsDesc')
       }),
 
-      // 缩放区块：界面缩放 + 聊天文字大小（两项上下相邻）。
-      // 原先「界面缩放」独占底部说明带右侧，加第二项后提到正文——底部带回归
-      // 「只放悬停说明」的单一职责。两项都走官方通道：缩放走 window.hermesDesktop.zoom，
-      // 聊天文字走 host.settings 网关，均与官方设置页双向同步。
+      // 缩放区块（通栏）：界面缩放 + 聊天文字大小，两行相邻。
+      // 必须通栏：6 档分段控件布局实宽 ~300px，塞进双栏单列（~312px）会把标题
+      // 压成竖排——scale-90 只是 CSS transform，不改变布局宽度。原来「界面缩放」
+      // 独占底部说明带右侧（通栏），空间够；加第二项后独立成区块，保持通栏。
       jsxs('div', {
-        className: 'flex flex-col gap-1.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
+        className: 'mt-1 flex flex-col gap-1.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
         children: [
           jsxs('div', {
             className: 'flex items-center gap-2.5',
@@ -2225,7 +2225,7 @@ function AppearancePanel() {
               jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: t('zoom.title') }),
               jsx('div', {
                 // onMouseEnter 包外层 div——SDK 组件不保证透传未知 props 到 DOM
-                style: { flexShrink: 0, marginLeft: 'auto' },
+                style: { flexShrink: 0 },
                 onMouseEnter: () => hover('zoom.desc'),
                 children: jsx(SegmentedControl, {
                   options: ZOOM_OPTIONS,
@@ -2242,7 +2242,7 @@ function AppearancePanel() {
             children: [
               jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: t('chatScale.title') }),
               jsx('div', {
-                style: { flexShrink: 0, marginLeft: 'auto' },
+                style: { flexShrink: 0 },
                 onMouseEnter: () => hover('chatScale.desc'),
                 children: jsx(SegmentedControl, {
                   options: CHAT_SCALE_OPTIONS,
@@ -2295,10 +2295,11 @@ function AppearancePanel() {
           jsxs('div', {
             className: 'flex min-w-0 flex-1 flex-col border-l border-(--ui-stroke-secondary)',
             style: { paddingLeft: '12px' },
-            children: [secBubble, secTranslucency, secFont, secPaper, secIntro, secScale]
+            children: [secBubble, secTranslucency, secFont, secPaper, secIntro]
           })
         ]
       }),
+      secScale,
       secFooter
     ]
   })
