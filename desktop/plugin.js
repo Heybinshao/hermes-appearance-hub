@@ -2219,20 +2219,21 @@ function AppearancePanel() {
       }),
 
       // 缩放区块（通栏）：界面缩放 + 聊天文字大小，两行相邻。
-      // 必须通栏：6 档分段控件布局实宽 ~300px，塞进双栏单列（~312px）会把标题
-      // 压成竖排——scale-90 只是 CSS transform，不改变布局宽度。原来「界面缩放」
-      // 独占底部说明带右侧（通栏），空间够；加第二项后独立成区块，保持通栏。
+      // 必须通栏：6 档分段控件布局实宽 ~320px，塞进双栏单列（~312px）会把标题
+      // 压成竖排——scale-90 只是 CSS transform，不改变布局宽度。
+      // 两行各自是**独立行**：整行 hover 高亮 + 整行 hover 联动说明带（与面板其他行
+      // BehaviorRow 同款）——外层只做纵向布局，悬停一行只亮那一行、只换那一条说明。
       jsxs('div', {
-        className: 'mt-1 flex flex-col gap-1.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
+        className: 'mt-1 flex flex-col',
         children: [
           jsxs('div', {
-            className: 'flex items-center gap-2.5',
+            onMouseEnter: () => hover('zoom.desc'),
+            className: 'flex items-center gap-2.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
             children: [
               jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: t('zoom.title') }),
+              // onMouseEnter 已上提到整行；这层 div 只承担 flexShrink（SDK 组件不透传未知 props）
               jsx('div', {
-                // onMouseEnter 包外层 div——SDK 组件不保证透传未知 props 到 DOM
                 style: { flexShrink: 0 },
-                onMouseEnter: () => hover('zoom.desc'),
                 children: jsx(SegmentedControl, {
                   options: ZOOM_OPTIONS,
                   value: zoom,
@@ -2244,12 +2245,12 @@ function AppearancePanel() {
             ]
           }),
           jsxs('div', {
-            className: 'flex items-center gap-2.5',
+            onMouseEnter: () => hover('chatScale.desc'),
+            className: 'flex items-center gap-2.5 rounded-md px-2 py-2 hover:bg-(--chrome-action-hover)',
             children: [
               jsx('div', { className: 'min-w-0 flex-1 text-[0.75rem] leading-tight', children: t('chatScale.title') }),
               jsx('div', {
                 style: { flexShrink: 0 },
-                onMouseEnter: () => hover('chatScale.desc'),
                 children: jsx(SegmentedControl, {
                   options: CHAT_SCALE_OPTIONS,
                   value: chatScale,
