@@ -1432,12 +1432,18 @@ const BINSHAO_THEME = USER_THEMES.binshao
 // themeName / setTheme）：清单 = 官方内置 + 用户安装 + THEMES_AREA 贡献，
 // 官方的 classic 等主题自动在列，Binshao（下方注入的 user theme）同样在列。
 // 官方 availableThemes 的内置序与 hub 旧网格序不同（nous-alt 位置、slate/
-// cyberpunk 互换），这里保序：已知 12 项按老序排前，其余（官方新增/用户新装）
-// 维持官方序缀后。
+// cyberpunk 互换），这里保序：官方内置 11 项按老网格序排前，其余（官方后加的内置项、
+// 用户安装、其他贡献）按官方序缀后。**Binshao 是本插件自带主题，恒排最后**——用户
+// 拍板，不让它跟着官方清单顺序漂到中间（官方新增主题一律排在它前面）。
 const THEME_ORDER = ['nous', 'nous-alt', 'github', 'catppuccin', 'everforest',
-  'solarized', 'midnight', 'ember', 'mono', 'cyberpunk', 'slate', 'binshao']
+  'solarized', 'midnight', 'ember', 'mono', 'cyberpunk', 'slate']
 const themeRank = (n) => { const i = THEME_ORDER.indexOf(n); return i < 0 ? Infinity : i }
-const sortedThemes = (list) => [...(list || [])].sort((a, b) => themeRank(a.name) - themeRank(b.name))
+const sortedThemes = (list) => {
+  const arr = [...(list || [])]
+  const own = arr.filter((t) => t.name === 'binshao')
+  const rest = arr.filter((t) => t.name !== 'binshao').sort((a, b) => themeRank(a.name) - themeRank(b.name))
+  return [...rest, ...own]
+}
 
 // ── 面板 ──────────────────────────────────────────────────────────
 function AppearancePanel() {
