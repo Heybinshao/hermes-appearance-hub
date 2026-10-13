@@ -1,6 +1,6 @@
 name: hermes-appearance-hub
-version: 3.4.0
-description: "One status-bar panel for Hermes Desktop appearance: 12 themes, paper texture, LXGW WenKai font, window translucency, splash branding and the chat-behaviour switches — hover any row for its description, every change applies live."
+version: 3.5.0
+description: "One status-bar panel for Hermes Desktop appearance: every official theme (auto-synced), UI scale and chat text size, paper texture, LXGW WenKai font, window translucency, splash branding and the chat-behaviour switches — hover any row for its description, every change applies live."
 author: Heybinshao
 license: MIT
 homepage: https://github.com/Heybinshao/hermes-appearance-hub
