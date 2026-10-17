@@ -67,7 +67,7 @@ export const LOCALES = {
     },
     zoom: { title: 'UI Scale', desc: 'Native scaling · synced with Settings/View menu' },
     chatScale: { title: 'Chat Text Size', desc: 'Adjusts chat text and composer font size relative to UI scale. Sidebar and controls keep their size.' },
-    footer: { tip: 'Hover any setting for details · Changes apply instantly' },
+    footer: { tip: 'Hover any setting for details · Changes apply instantly · Desktop-wide' },
     notify: { ready: 'Appearance Hub ready — use the Appearance toggle in the status bar', failed: 'Appearance Hub injection failed: ' }
   },
   zh: {
@@ -115,7 +115,7 @@ export const LOCALES = {
     },
     zoom: { title: '界面缩放', desc: '缩放整个应用的文字和界面，与系统设置/View 菜单同步。' },
     chatScale: { title: '聊天文字大小', desc: '相对于界面缩放调整对话文字和消息输入框的字号。侧边栏和控件大小保持不变。' },
-    footer: { tip: '悬停任一设置项查看说明 · 改动即时生效' },
+    footer: { tip: '悬停任一设置项查看说明 · 改动即时生效 · 全桌面生效' },
     notify: { ready: '外观 Hub 已就绪 — 状态栏「外观」开关', failed: '外观 Hub 注入失败: ' }
   },
   'zh-hant': {
@@ -163,7 +163,7 @@ export const LOCALES = {
     },
     zoom: { title: '介面縮放', desc: '縮放整個應用程式的文字與介面，與設定/檢視選單同步。' },
     chatScale: { title: '聊天文字大小', desc: '相對於介面縮放調整對話文字和訊息輸入框的字級。側邊欄與控制項大小保持不變。' },
-    footer: { tip: '懸停任一設定項查看說明 · 變更即時生效' },
+    footer: { tip: '懸停任一設定項查看說明 · 變更即時生效 · 全桌面生效' },
     notify: { ready: '外觀 Hub 已就緒 — 狀態列「外觀」開關', failed: '外觀 Hub 注入失敗: ' }
   }
 }
