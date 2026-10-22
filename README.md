@@ -1,4 +1,4 @@
-# Hermes Appearance Hub ![版本](https://img.shields.io/badge/版本-v3.7.2-blue)
+# Hermes Appearance Hub ![版本](https://img.shields.io/badge/版本-v3.7.3-blue)
 
 给 Hermes 桌面端用的**外观整合插件**：把散在官方设置页各处的外观与对话行为开关，连同纸纹模拟、霞鹜文楷、Ink & Paper 灰阶主题、Binshao 主题等独有能力，收进状态栏一个浮窗——悬停即见说明，改动即时生效，省掉翻设置页的路径。
 
@@ -21,7 +21,7 @@
 
 ### Ink & Paper 主题
 
-浅灰纸面 + 墨线 + 中性 hover；去绿去蓝，主操作/焦点/链接均为墨色。固定排在 Binshao 之前、主题列表末尾。内部 id 为 `ink-paper`；旧 id `github-contrast` 会在插件加载时自动迁移，不需要重新选主题。
+浅灰纸面 + 墨线 + 中性 hover；去绿去蓝，主操作/焦点/链接均为墨色。文字选区沿用 Mono 同款黄色，选中文字强制高对比前景。固定排在 Binshao 之前、主题列表末尾。内部 id 为 `ink-paper`；旧 id `github-contrast` 会在插件加载时自动迁移，不需要重新选主题。
 
 ### Binshao 主题
 
