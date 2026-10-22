@@ -1432,7 +1432,7 @@ const BINSHAO_THEME = USER_THEMES.binshao
 const INK_PAPER_THEME = {
   "name": "ink-paper",
   "label": "Ink & Paper",
-  "description": "灰阶纸墨，去绿去蓝。",
+  "description": "灰阶纸墨，极简中性。",
   "colors": {
     "background": "#fcfcfd",
     "foreground": "#141619",
